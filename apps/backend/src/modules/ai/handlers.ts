@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { db } from '@ghost/database'
 import { listAvailableModels } from '../../core/ai-models.js'
-import { resolveProviderBaseUrl } from '../../core/ai-client.js'
+import { resolveProviderBaseUrl, makeClient } from '../../core/ai-client.js'
 import { validate, sendValidationError, ValidationError } from '../../core/validation.js'
 import { encrypt, decrypt } from '../../core/encryption.js'
 import { aiProviderCreateSchema, aiProviderUpdateSchema } from '@ghost/shared'
@@ -138,17 +138,7 @@ export async function handleTestProvider(req: FastifyRequest) {
   const { api_base_url, api_key, name, model_id } = req.body as { api_base_url: string; api_key?: string; name?: string; model_id?: string }
   const baseURL = await resolveProviderBaseUrl(api_base_url, name, model_id)
   try {
-    const OpenAI = (await import('openai')).default
-    const config: { apiKey: string; baseURL?: string; defaultHeaders?: Record<string, string> } = { apiKey: api_key ?? '' }
-    if (baseURL) {
-      config.baseURL = baseURL
-      if (baseURL.includes('googleapis.com') || baseURL.includes('google')) {
-        config.defaultHeaders = {
-          'x-goog-api-key': api_key ?? '',
-        }
-      }
-    }
-    const client = new OpenAI(config)
+    const client = makeClient(api_key ?? '', baseURL)
     const models = await client.models.list()
     return {
       status: 'ok',

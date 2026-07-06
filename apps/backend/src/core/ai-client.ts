@@ -25,10 +25,10 @@ export function makeClient(apiKey: string, baseURL: string): OpenAI {
     const trimmedUrl = (baseURL || '').trim()
     if (trimmedUrl) {
       config.baseURL = trimmedUrl
-      if (trimmedUrl.includes('googleapis.com') || trimmedUrl.includes('google')) {
-        config.defaultHeaders = {
-          'x-goog-api-key': apiKey,
-        }
+    }
+    if (trimmedUrl.includes('googleapis.com')) {
+      config.defaultHeaders = {
+        'x-goog-api-key': apiKey
       }
     }
     clientCache.set(key, new OpenAI(config))
