@@ -5,6 +5,9 @@ import { platformService } from '../../core/platform-service.js'
 import { eventBus } from '../../core/event-bus.js'
 import { validate, sendValidationError, ValidationError } from '../../core/validation.js'
 import { messageCreateSchema, messageSearchSchema } from '@ghost/shared'
+import { generateEmbedding } from '../../core/ai-embedding.js'
+import { generateAutoReply } from '../../core/ai-chat.js'
+import { memoryStore } from '../../core/memory-store.js'
 
 export let socketIO: SocketIOServer
 
@@ -76,9 +79,50 @@ export async function handleSendMessage(req: FastifyRequest, reply: FastifyReply
     try {
       await platformService.sendMessage(platform, receiver_id, content ?? '')
     } catch { /* skip */ }
+  } else {
+    handleWebAiAssistantReply(userId, content).catch(err => {
+      console.error('Gagal memproses balasan AI Asisten:', err)
+    })
   }
 
   reply.status(201).send(msg)
+}
+
+async function handleWebAiAssistantReply(userId: number, content: string) {
+  let context: string[] = []
+  try {
+    const queryEmbedding = await generateEmbedding(content, userId)
+    const matches = await memoryStore.searchChat(queryEmbedding, 3, { userId: String(userId) })
+    context = matches.filter(m => m.similarity >= 0.6).map(m => m.content)
+  } catch (err) {
+    console.warn('Gagal memuat RAG context untuk asisten AI:', err)
+  }
+
+  let answer = ''
+  try {
+    answer = await generateAutoReply(content, context, userId)
+  } catch (err) {
+    console.error('Error saat memanggil LLM untuk balasan asisten AI:', err)
+    answer = 'Maaf, saya sedang mengalami kendala teknis dan tidak dapat membalas pesan Anda saat ini. Silakan periksa kembali konfigurasi API Key dan Base URL Anda.'
+  }
+
+  const aiMsg = await db.message.create({
+    data: {
+      userId,
+      platform: 'web',
+      senderId: 'ai-assistant',
+      senderName: 'Asisten AI',
+      content: answer || 'Maaf, saya tidak mendapat jawaban dari model.',
+      messageType: 'text',
+      isOutgoing: false,
+    }
+  })
+
+  try {
+    socketIO.to(`user:${userId}`).emit('new_message', aiMsg)
+  } catch (err) {
+    console.error('Gagal mengirim pesan balasan asisten AI via WebSocket:', err)
+  }
 }
 
 export async function handleSearchMessages(req: FastifyRequest, reply: FastifyReply) {
