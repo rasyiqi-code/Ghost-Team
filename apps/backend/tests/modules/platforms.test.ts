@@ -13,8 +13,8 @@ const {
   mockMigratePlatformUserId,
 } = vi.hoisted(() => {
   const returning = vi.fn()
-  const values = vi.fn(() => ({ returning }))
-  const set = vi.fn(() => ({ where: vi.fn(() => ({ returning })) }))
+  const values = vi.fn((_data?: any) => ({ returning }))
+  const set = vi.fn((_data?: any) => ({ where: vi.fn(() => ({ returning })) }))
 
   return {
     mockFindMany: vi.fn<(args: [unknown]) => unknown[]>(),
@@ -74,7 +74,7 @@ async function buildTestApp() {
 
   // Minimal auth plugin: sets userId on every request
   app.decorate('authenticate', async function (request: FastifyRequest, _reply: FastifyReply) {
-    request.userId = 1
+    (request as any).userId = 1
   })
 
   const { platformsModule } = await import('../../src/modules/platforms/index.js')

@@ -17,8 +17,8 @@ const {
   mockListAvailableModels,
 } = vi.hoisted(() => {
   const returning = vi.fn()
-  const values = vi.fn(() => ({ returning }))
-  const set = vi.fn(() => ({ where: vi.fn(() => ({ returning })) }))
+  const values = vi.fn((_data?: any) => ({ returning }))
+  const set = vi.fn((_data?: any) => ({ where: vi.fn(() => ({ returning })) }))
   const deleteWhere = vi.fn()
 
   return {
