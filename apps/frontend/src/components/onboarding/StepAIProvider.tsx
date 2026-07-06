@@ -156,6 +156,12 @@ export function StepAIProvider({ state, onChange, fetchedModels, onFetchedModels
           value={state.baseUrl}
           onChange={e => onChange({ baseUrl: e.target.value })}
           className={inputCls}
+          readOnly={
+            state.provider !== '' &&
+            (catalog?.providers || []).some(
+              p => p.name.toLowerCase() === state.provider.toLowerCase() || p.id.toLowerCase() === state.provider.toLowerCase()
+            )
+          }
         />
         <datalist id="ob-base-urls">
           {(catalog?.providers || []).map(p => <option key={p.id} value={p.api} />)}

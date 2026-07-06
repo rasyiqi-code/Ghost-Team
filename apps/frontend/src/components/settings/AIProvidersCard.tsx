@@ -171,9 +171,17 @@ export function AIProvidersCard() {
                   onChange={e => setForm(prev => prev ? { ...prev, apiBaseUrl: e.target.value } : null)}
                   placeholder="https://api.openai.com/v1"
                   className={inputCls} list="settings-base-urls"
+                  readOnly={
+                    form.name !== '' &&
+                    (catalog?.providers || []).some(
+                      p => p.name.toLowerCase() === form.name.toLowerCase() || p.id.toLowerCase() === form.name.toLowerCase()
+                    )
+                  }
                 />
                 <datalist id="settings-base-urls">
-                  {(catalog?.providers || []).map(p => <option key={p.id} value={p.api} />)}
+                  {(catalog?.providers || []).map(p => (
+                    <option key={p.id} value={p.api} />
+                  ))}
                 </datalist>
               </div>
               <div>
