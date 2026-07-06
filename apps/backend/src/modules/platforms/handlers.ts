@@ -84,6 +84,32 @@ export async function handleCreatePlatform(req: FastifyRequest, reply: FastifyRe
       platformUserId: platform_user_id,
     }
   })
+
+  // Otomatis daftarkan webhook ke Telegram jika platform terhubung
+  if (platform === 'telegram' && credentials && process.env.NODE_ENV !== 'test') {
+    const host = req.headers.host ?? 'localhost:8000'
+    // Gunakan https jika x-forwarded-proto bernilai https (untuk proxy/ngrok)
+    const proto = req.headers['x-forwarded-proto'] ?? 'http'
+    const base = `${proto}://${host}`
+    const webhookUrl = `${base}/api/webhook/telegram`
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${credentials}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: webhookUrl })
+      })
+      const data = (await response.json()) as { ok: boolean; description?: string }
+      if (!data.ok) {
+        console.error('Failed to set Telegram webhook on registration:', data.description)
+      } else {
+        console.log('Telegram webhook registered successfully:', webhookUrl)
+      }
+    } catch (e) {
+      console.error('Error setting Telegram webhook during create:', e)
+    }
+  }
+
   reply.status(201).send(conn)
 }
 
