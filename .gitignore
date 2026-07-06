@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+
+# Prisma generated
+packages/database/node_modules/
+
+# Storage
+/tmp/ghost-storage/
+
+# Turbo cache
+.turbo/

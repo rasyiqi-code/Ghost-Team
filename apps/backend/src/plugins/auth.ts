@@ -1,0 +1,31 @@
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import fp from 'fastify-plugin'
+import { fromNodeHeaders } from 'better-auth/node'
+import { auth } from '../core/auth.js'
+
+export async function authPlugin(app: FastifyInstance): Promise<void> {
+  app.decorateRequest('userId', 0)
+
+  app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+      })
+      if (!session) {
+        reply.status(401).send({ detail: 'Invalid or expired session' })
+        return
+      }
+      request.userId = Number(session.user.id)
+    } catch {
+      reply.status(401).send({ detail: 'Authentication failed' })
+    }
+  })
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+  }
+}
+
+export default fp(authPlugin, { name: 'auth' })

@@ -1,0 +1,44 @@
+import { z } from 'zod';
+declare const envSchema: z.ZodObject<{
+    APP_NAME: z.ZodDefault<z.ZodString>;
+    ENVIRONMENT: z.ZodDefault<z.ZodEnum<{
+        development: "development";
+        production: "production";
+        test: "test";
+    }>>;
+    HOST: z.ZodDefault<z.ZodString>;
+    PORT: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    DATABASE_URL: z.ZodDefault<z.ZodString>;
+    REDIS_URL: z.ZodDefault<z.ZodString>;
+    JWT_SECRET_KEY: z.ZodString;
+    JWT_ALGORITHM: z.ZodDefault<z.ZodString>;
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    BETTER_AUTH_SECRET: z.ZodDefault<z.ZodString>;
+    BETTER_AUTH_URL: z.ZodDefault<z.ZodString>;
+    ENCRYPTION_KEY: z.ZodString;
+    CRYPTO_SALT: z.ZodString;
+    CORS_ORIGINS: z.ZodDefault<z.ZodString>;
+    OPENAI_API_KEY: z.ZodDefault<z.ZodString>;
+    OPENAI_BASE_URL: z.ZodDefault<z.ZodString>;
+    QWEN_MODEL: z.ZodDefault<z.ZodString>;
+    QWEN_EMBEDDING_MODEL: z.ZodDefault<z.ZodString>;
+    QWEN_AUDIO_MODEL: z.ZodDefault<z.ZodString>;
+    STORAGE_DIR: z.ZodDefault<z.ZodString>;
+    TELEGRAM_BOT_TOKEN: z.ZodDefault<z.ZodString>;
+    TELEGRAM_WEBHOOK_SECRET: z.ZodDefault<z.ZodString>;
+    SLACK_BOT_TOKEN: z.ZodDefault<z.ZodString>;
+    SLACK_SIGNING_SECRET: z.ZodDefault<z.ZodString>;
+    WHATSAPP_ACCESS_TOKEN: z.ZodDefault<z.ZodString>;
+    WHATSAPP_PHONE_NUMBER_ID: z.ZodDefault<z.ZodString>;
+    WHATSAPP_VERIFY_TOKEN: z.ZodDefault<z.ZodString>;
+    WHATSAPP_APP_SECRET: z.ZodDefault<z.ZodString>;
+    ADMIN_EMAIL: z.ZodDefault<z.ZodString>;
+    ADMIN_PASSWORD: z.ZodDefault<z.ZodString>;
+    FRONTEND_DIR: z.ZodDefault<z.ZodString>;
+    PUBLIC_URL: z.ZodDefault<z.ZodString>;
+}, z.core.$strip>;
+export type Env = z.infer<typeof envSchema>;
+export declare const env: Env;
+export declare function getCorsOrigins(): string[];
+export {};
+//# sourceMappingURL=index.d.ts.map

@@ -1,0 +1,30 @@
+{
+  "name": "ghost-team",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "clean": "turbo clean",
+    "db:generate": "bun --cwd packages/database prisma generate",
+    "db:push": "bun --cwd packages/database prisma db push",
+    "db:migrate": "bun --cwd packages/database prisma migrate dev"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "~6.0.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["*"]
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

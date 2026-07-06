@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ghost_relay
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ghost -d ghost_relay"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ghost-relay:
+    build: .
+    container_name: ghost-relay
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://ghost:changeme@db:5432/ghost_relay
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@ghost.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production}
+      CRYPTO_SALT: ${CRYPTO_SALT:-change-me-in-production}
+      REDIS_URL: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
