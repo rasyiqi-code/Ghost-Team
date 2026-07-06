@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Brain, Globe, Key, Plus, Trash2, CheckCircle, XCircle, RefreshCw, ChevronDown } from 'lucide-react'
+import { Brain, Globe, Key, Plus, Trash2, CheckCircle, XCircle, RefreshCw, ChevronDown, Zap } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useModelsCatalog } from '@/hooks/useModelsCatalog'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
@@ -69,6 +69,55 @@ export function AIProvidersCard() {
       alert(err.message || 'Gagal menghapus provider.')
     }
   })
+
+  const [testingProviderId, setTestingProviderId] = useState<number | null>(null)
+  const [testingForm, setTestingForm] = useState(false)
+
+  const testProviderConnection = async (p: AIProvider) => {
+    setTestingProviderId(p.id)
+    try {
+      const res = await api.post<{ status: string; models?: string[]; detail?: string }>('/ai/providers/test', {
+        api_base_url: p.apiBaseUrl,
+        api_key: p.apiKey,
+        name: p.name,
+        model_id: p.modelId,
+      })
+      if (res.status === 'ok') {
+        alert(`Koneksi sukses! Berhasil terhubung ke provider "${p.name}". Ditemukan ${res.models?.length || 0} model.`)
+      } else {
+        alert(`Koneksi gagal: ${res.detail || 'Kredensial tidak valid.'}`)
+      }
+    } catch (e: any) {
+      alert(`Error koneksi: ${e.message || 'Gagal terhubung ke provider.'}`)
+    } finally {
+      setTestingProviderId(null)
+    }
+  }
+
+  const testFormConnection = async () => {
+    if (!form || !form.apiBaseUrl || !form.apiKey) return
+    setTestingForm(true)
+    try {
+      const res = await api.post<{ status: string; models?: string[]; detail?: string }>('/ai/providers/test', {
+        api_base_url: form.apiBaseUrl,
+        api_key: form.apiKey,
+        name: form.name,
+        model_id: form.modelId,
+      })
+      if (res.status === 'ok') {
+        alert(`Koneksi sukses! Berhasil terhubung ke provider "${form.name}". Ditemukan ${res.models?.length || 0} model.`)
+        if (res.models && res.models.length > 0) {
+          setLiveModels(res.models)
+        }
+      } else {
+        alert(`Koneksi gagal: ${res.detail || 'Kredensial tidak valid.'}`)
+      }
+    } catch (e: any) {
+      alert(`Error koneksi: ${e.message || 'Gagal terhubung ke provider.'}`)
+    } finally {
+      setTestingForm(false)
+    }
+  }
 
   const handleNameChange = (name: string) => {
     setLiveModels([])
@@ -184,10 +233,19 @@ export function AIProvidersCard() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {p.isActive ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-slate-300" />}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => testProviderConnection(p)}
+                    disabled={testingProviderId !== null}
+                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors shrink-0"
+                    title="Test Koneksi Provider"
+                  >
+                    <Zap className={`h-4 w-4 ${testingProviderId === p.id ? 'animate-bounce text-amber-500' : ''}`} />
+                  </button>
+                  {p.isActive ? <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" /> : <XCircle className="h-4 w-4 text-slate-300 shrink-0" />}
                   <button
                     onClick={() => deleteMutation.mutate(p.id)}
+                    disabled={deleteMutation.isPending}
                     className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
                     title="Hapus Provider"
                   >
@@ -357,8 +415,19 @@ export function AIProvidersCard() {
                 Cancel
               </Button>
               <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                disabled={testingForm || !form.apiBaseUrl || !form.apiKey}
+                onClick={testFormConnection}
+              >
+                <Zap className={`h-3.5 w-3.5 mr-1.5 ${testingForm ? 'animate-bounce text-amber-500' : 'text-amber-500'}`} />
+                {testingForm ? 'Testing...' : 'Test Connection'}
+              </Button>
+              <Button
                 size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                disabled={!form.name || !form.apiBaseUrl || !form.apiKey || !form.modelId}
+                disabled={!form.name || !form.apiBaseUrl || !form.apiKey || !form.modelId || createMutation.isPending}
                 onClick={() => createMutation.mutate(form)}
               >
                 Save Provider
