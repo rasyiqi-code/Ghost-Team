@@ -215,8 +215,12 @@ export function PlatformsCard() {
               className="h-8 border-slate-200 text-slate-600 hover:bg-slate-50"
               disabled={migrateMutation.isPending}
               onClick={async () => {
-                const result = await migrateMutation.mutateAsync()
-                alert(result.message)
+                try {
+                  const result = await migrateMutation.mutateAsync()
+                  alert(result.message)
+                } catch (e: any) {
+                  alert(e.response?.data?.detail || e.message || 'Gagal melakukan migrasi.')
+                }
               }}
             >
               <RefreshCw className={`h-3.5 w-3.5 mr-1 text-cyan-500 ${migrateMutation.isPending ? 'animate-spin' : ''}`} />
