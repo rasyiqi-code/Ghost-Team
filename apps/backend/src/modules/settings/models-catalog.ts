@@ -1,4 +1,17 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { FastifyRequest, FastifyReply } from 'fastify'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const fallbackProvidersPath = join(__dirname, '../../core/fallback-providers.json')
+
+let fallbackUrls: Record<string, string> = {}
+try {
+  fallbackUrls = JSON.parse(readFileSync(fallbackProvidersPath, 'utf8'))
+} catch (err) {
+  console.error('Failed to load fallback-providers.json in models-catalog:', err)
+}
 
 let catalogCache: any = null
 let catalogLastFetched = 0
@@ -54,10 +67,22 @@ export async function handleModelsCatalog() {
     return { providers: [] }
   }
   const providers = Object.values(catalog.providers).map((p: any) => {
+    const providerId = (p.id || '').toLowerCase()
+    let apiEndpoint = p.api || ''
+
+    if (!apiEndpoint) {
+      for (const [key, fallbackUrl] of Object.entries(fallbackUrls)) {
+        if (providerId.includes(key)) {
+          apiEndpoint = fallbackUrl
+          break
+        }
+      }
+    }
+
     return {
       id: p.id,
       name: p.name,
-      api: p.api || '',
+      api: apiEndpoint,
       models: p.models ? Object.keys(p.models) : []
     }
   })

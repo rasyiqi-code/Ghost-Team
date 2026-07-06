@@ -316,7 +316,7 @@ export function StepAIProvider({ state, onChange, fetchedModels, onFetchedModels
           readOnly={
             state.provider !== '' &&
             (catalog?.providers || []).some(
-              p => (p.name.toLowerCase() === state.provider.toLowerCase() || p.id.toLowerCase() === state.provider.toLowerCase()) && p.api
+              p => p.name.toLowerCase() === state.provider.toLowerCase() || p.id.toLowerCase() === state.provider.toLowerCase()
             )
           }
         />

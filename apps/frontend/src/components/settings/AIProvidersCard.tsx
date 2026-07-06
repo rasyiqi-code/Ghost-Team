@@ -246,7 +246,7 @@ export function AIProvidersCard() {
                   readOnly={
                     form.name !== '' &&
                     (catalog?.providers || []).some(
-                      p => (p.name.toLowerCase() === form.name.toLowerCase() || p.id.toLowerCase() === form.name.toLowerCase()) && p.api
+                      p => p.name.toLowerCase() === form.name.toLowerCase() || p.id.toLowerCase() === form.name.toLowerCase()
                     )
                   }
                 />

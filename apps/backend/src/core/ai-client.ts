@@ -1,7 +1,20 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import OpenAI from 'openai'
 import { db } from '@ghost/database'
 import { decrypt } from './encryption.js'
 import { getAllProviders } from './models-dev.js'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const fallbackProvidersPath = join(__dirname, 'fallback-providers.json')
+
+let fallbackUrls: Record<string, string> = {}
+try {
+  fallbackUrls = JSON.parse(readFileSync(fallbackProvidersPath, 'utf8'))
+} catch (err) {
+  console.error('Failed to load fallback-providers.json:', err)
+}
 
 const clientCache = new Map<string, OpenAI>()
 
@@ -62,6 +75,13 @@ export async function resolveProviderBaseUrl(
     }
   } catch (err) {
     console.error('Error fetching providers catalog:', err)
+  }
+
+  // 2. Gunakan fallback dari config file
+  for (const [key, fallbackUrl] of Object.entries(fallbackUrls)) {
+    if (providerKey.includes(key)) {
+      return fallbackUrl
+    }
   }
 
   return ''
