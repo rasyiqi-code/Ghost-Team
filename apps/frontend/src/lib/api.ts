@@ -38,6 +38,9 @@ async function request<T>(
     const detail = await res.json().catch(() => ({}))
     throw new Error(detail.detail || `API error: ${res.status} ${res.statusText}`)
   }
+  if (res.status === 204) {
+    return {} as T
+  }
   return res.json()
 }
 
