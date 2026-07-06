@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Brain, Globe, Key, Plus, Trash2, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { Brain, Globe, Key, Plus, Trash2, CheckCircle, XCircle, RefreshCw, ChevronDown } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useModelsCatalog } from '@/hooks/useModelsCatalog'
 import type { AIProvider, AIProviderForm } from '@/types'
@@ -17,6 +17,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 }
 
 const inputCls = 'h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-400 transition-colors'
+const selectCls = 'h-8 w-full appearance-none rounded-md border border-slate-200 bg-white px-3 pr-8 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-400 transition-all cursor-pointer'
 
 export function AIProvidersCard() {
   const queryClient = useQueryClient()
@@ -190,27 +191,37 @@ export function AIProvidersCard() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Provider Type</label>
-                <select
-                  value={form.providerType}
-                  onChange={e => setForm(prev => prev ? { ...prev, providerType: e.target.value } : null)}
-                  className={inputCls}
-                >
-                  {PROVIDER_TYPES.map(t => <option key={t} value={t}>{PROVIDER_LABELS[t]}</option>)}
-                </select>
+                <div className="relative">
+                  <select
+                    value={form.providerType}
+                    onChange={e => setForm(prev => prev ? { ...prev, providerType: e.target.value } : null)}
+                    className={selectCls}
+                  >
+                    {PROVIDER_TYPES.map(t => <option key={t} value={t}>{PROVIDER_LABELS[t]}</option>)}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Name</label>
-                <select
-                  value={isCustomProvider ? 'custom' : form.name}
-                  onChange={e => handleNameChange(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="" disabled>Pilih Provider...</option>
-                  {(catalog?.providers || []).map(p => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
-                  ))}
-                  <option value="custom">✍️ Custom Provider (Lainnya)</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={isCustomProvider ? 'custom' : form.name}
+                    onChange={e => handleNameChange(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="" disabled>Pilih Provider...</option>
+                    {(catalog?.providers || []).map(p => (
+                      <option key={p.id} value={p.name}>{p.name}</option>
+                    ))}
+                    <option value="custom">✍️ Custom Provider (Lainnya)</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
             </div>
             {isCustomProvider && (
@@ -267,27 +278,32 @@ export function AIProvidersCard() {
               <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Model ID</label>
               <div className="flex gap-2">
                 {modelSuggestions.length > 0 ? (
-                  <select
-                    value={isCustomModel ? 'custom' : form.modelId}
-                    onChange={e => {
-                      const val = e.target.value
-                      if (val === 'custom') {
-                        setIsCustomModel(true)
-                        setCustomModelId('')
-                        setForm(prev => prev ? { ...prev, modelId: '' } : null)
-                      } else {
-                        setIsCustomModel(false)
-                        setForm(prev => prev ? { ...prev, modelId: val } : null)
-                      }
-                    }}
-                    className={inputCls}
-                  >
-                    <option value="" disabled>Pilih Model...</option>
-                    {modelSuggestions.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                    <option value="custom">✍️ Custom Model (Lainnya)</option>
-                  </select>
+                  <div className="relative flex-1">
+                    <select
+                      value={isCustomModel ? 'custom' : form.modelId}
+                      onChange={e => {
+                        const val = e.target.value
+                        if (val === 'custom') {
+                          setIsCustomModel(true)
+                          setCustomModelId('')
+                          setForm(prev => prev ? { ...prev, modelId: '' } : null)
+                        } else {
+                          setIsCustomModel(false)
+                          setForm(prev => prev ? { ...prev, modelId: val } : null)
+                        }
+                      }}
+                      className={selectCls}
+                    >
+                      <option value="" disabled>Pilih Model...</option>
+                      {modelSuggestions.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                      <option value="custom">✍️ Custom Model (Lainnya)</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
                 ) : (
                   <input
                     type="text" value={form.modelId}
