@@ -39,6 +39,8 @@ export function AIProvidersCard() {
   const [fetchingLiveModels, setFetchingLiveModels] = useState(false)
   const [isCustomProvider, setIsCustomProvider] = useState(false)
   const [customName, setCustomName] = useState('')
+  const [isCustomModel, setIsCustomModel] = useState(false)
+  const [customModelId, setCustomModelId] = useState('')
 
   const createMutation = useMutation({
     mutationFn: (data: AIProviderForm) => api.post('/ai/providers', data),
@@ -48,6 +50,8 @@ export function AIProvidersCard() {
       setLiveModels([])
       setIsCustomProvider(false)
       setCustomName('')
+      setIsCustomModel(false)
+      setCustomModelId('')
     },
   })
 
@@ -58,6 +62,8 @@ export function AIProvidersCard() {
 
   const handleNameChange = (name: string) => {
     setLiveModels([])
+    setIsCustomModel(false)
+    setCustomModelId('')
     if (name === 'custom') {
       setIsCustomProvider(true)
       setCustomName('')
@@ -118,6 +124,10 @@ export function AIProvidersCard() {
             onClick={() => {
               setForm({ providerType: 'chat', name: '', apiBaseUrl: '', apiKey: '', modelId: '' })
               setLiveModels([])
+              setIsCustomProvider(false)
+              setCustomName('')
+              setIsCustomModel(false)
+              setCustomModelId('')
             }}
           >
             <Plus className="h-4 w-4 mr-1 text-indigo-500" /> Add Provider
@@ -256,18 +266,39 @@ export function AIProvidersCard() {
             <div>
               <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Model ID</label>
               <div className="flex gap-2">
-                <input
-                  type="text" value={form.modelId}
-                  onChange={e => setForm(prev => prev ? { ...prev, modelId: e.target.value } : null)}
-                  placeholder="gpt-4o, claude-3-5-sonnet..."
-                  className={`${inputCls} flex-1 w-auto`} list="model-suggestions"
-                />
-                <datalist id="model-suggestions">
-                  {modelSuggestions.map(m => <option key={m} value={m} />)}
-                </datalist>
+                {modelSuggestions.length > 0 ? (
+                  <select
+                    value={isCustomModel ? 'custom' : form.modelId}
+                    onChange={e => {
+                      const val = e.target.value
+                      if (val === 'custom') {
+                        setIsCustomModel(true)
+                        setCustomModelId('')
+                        setForm(prev => prev ? { ...prev, modelId: '' } : null)
+                      } else {
+                        setIsCustomModel(false)
+                        setForm(prev => prev ? { ...prev, modelId: val } : null)
+                      }
+                    }}
+                    className={inputCls}
+                  >
+                    <option value="" disabled>Pilih Model...</option>
+                    {modelSuggestions.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                    <option value="custom">✍️ Custom Model (Lainnya)</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text" value={form.modelId}
+                    onChange={e => setForm(prev => prev ? { ...prev, modelId: e.target.value } : null)}
+                    placeholder="gpt-4o, claude-3-5-sonnet..."
+                    className={inputCls}
+                  />
+                )}
                 <Button
                   variant="outline" size="icon"
-                  className="h-8 w-8 border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+                  className="h-10 w-10 border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 shrink-0"
                   onClick={fetchLiveModels}
                   disabled={fetchingLiveModels || !form.apiBaseUrl || !form.apiKey}
                 >
@@ -275,12 +306,33 @@ export function AIProvidersCard() {
                 </Button>
               </div>
             </div>
+
+            {isCustomModel && modelSuggestions.length > 0 && (
+              <div className="animate-in slide-in-from-top-1 duration-200">
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Nama Model Kustom</label>
+                <input
+                  type="text"
+                  value={customModelId}
+                  onChange={e => {
+                    const val = e.target.value
+                    setCustomModelId(val)
+                    setForm(prev => prev ? { ...prev, modelId: val } : null)
+                  }}
+                  placeholder="Ketik model ID (misal: gpt-4-32k)..."
+                  className={inputCls}
+                />
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="ghost" size="sm" className="text-slate-500 hover:text-slate-800"
                 onClick={() => {
                   setForm(null)
                   setLiveModels([])
+                  setIsCustomProvider(false)
+                  setCustomName('')
+                  setIsCustomModel(false)
+                  setCustomModelId('')
                 }}
               >
                 Cancel

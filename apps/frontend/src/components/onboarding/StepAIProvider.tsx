@@ -31,7 +31,24 @@ export function StepAIProvider({ state, onChange, fetchedModels, onFetchedModels
   const [isCustom, setIsCustom] = useState(false)
   const [customName, setCustomName] = useState('')
 
+  const [customChat, setCustomChat] = useState(false)
+  const [customChatId, setCustomChatId] = useState('')
+  const [customEmbedding, setCustomEmbedding] = useState(false)
+  const [customEmbeddingId, setCustomEmbeddingId] = useState('')
+  const [customAudio, setCustomAudio] = useState(false)
+  const [customAudioId, setCustomAudioId] = useState('')
+
+  const resetCustomModels = () => {
+    setCustomChat(false)
+    setCustomChatId('')
+    setCustomEmbedding(false)
+    setCustomEmbeddingId('')
+    setCustomAudio(false)
+    setCustomAudioId('')
+  }
+
   const handleProviderChange = (name: string) => {
+    resetCustomModels()
     if (name === 'custom') {
       setIsCustom(true)
       setCustomName('')
@@ -124,16 +141,36 @@ export function StepAIProvider({ state, onChange, fetchedModels, onFetchedModels
         </div>
         <div className="space-y-2">
           <label className="text-xs font-medium text-slate-500">Model Chat Utama</label>
-          <Input
-            list="ob-chat-models"
-            placeholder="gpt-4o, claude-3-5-sonnet..."
-            value={state.model}
-            onChange={e => onChange({ model: e.target.value })}
-            className={inputCls}
-          />
-          <datalist id="ob-chat-models">
-            {fetchedModels.map(m => <option key={m} value={m} />)}
-          </datalist>
+          {fetchedModels.length > 0 ? (
+            <select
+              value={customChat ? 'custom' : state.model}
+              onChange={e => {
+                const val = e.target.value
+                if (val === 'custom') {
+                  setCustomChat(true)
+                  setCustomChatId('')
+                  onChange({ model: '' })
+                } else {
+                  setCustomChat(false)
+                  onChange({ model: val })
+                }
+              }}
+              className="w-full h-10 rounded-md border border-slate-200 bg-slate-50 text-slate-900 px-3 text-sm focus:outline-none focus-visible:ring-indigo-400"
+            >
+              <option value="" disabled>Pilih Model...</option>
+              {fetchedModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              <option value="custom">✍️ Custom Model...</option>
+            </select>
+          ) : (
+            <Input
+              placeholder="gpt-4o, claude-3-5-sonnet..."
+              value={state.model}
+              onChange={e => onChange({ model: e.target.value })}
+              className={inputCls}
+            />
+          )}
         </div>
       </div>
 
@@ -153,34 +190,122 @@ export function StepAIProvider({ state, onChange, fetchedModels, onFetchedModels
         </div>
       )}
 
+      {customChat && fetchedModels.length > 0 && (
+        <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+          <label className="text-xs font-medium text-slate-500">Model Chat Kustom</label>
+          <Input
+            placeholder="Ketik model chat kustom..."
+            value={customChatId}
+            onChange={e => {
+              const val = e.target.value
+              setCustomChatId(val)
+              onChange({ model: val })
+            }}
+            className={inputCls}
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-xs font-medium text-slate-500">Model Embedding</label>
-          <Input
-            list="ob-embedding-models"
-            placeholder="text-embedding-3-small"
-            value={state.embeddingModel}
-            onChange={e => onChange({ embeddingModel: e.target.value })}
-            className={inputCls}
-          />
-          <datalist id="ob-embedding-models">
-            {fetchedModels.map(m => <option key={m} value={m} />)}
-          </datalist>
+          {fetchedModels.length > 0 ? (
+            <select
+              value={customEmbedding ? 'custom' : state.embeddingModel}
+              onChange={e => {
+                const val = e.target.value
+                if (val === 'custom') {
+                  setCustomEmbedding(true)
+                  setCustomEmbeddingId('')
+                  onChange({ embeddingModel: '' })
+                } else {
+                  setCustomEmbedding(false)
+                  onChange({ embeddingModel: val })
+                }
+              }}
+              className="w-full h-10 rounded-md border border-slate-200 bg-slate-50 text-slate-900 px-3 text-sm focus:outline-none focus-visible:ring-indigo-400"
+            >
+              <option value="" disabled>Pilih Model...</option>
+              {fetchedModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              <option value="custom">✍️ Custom Model...</option>
+            </select>
+          ) : (
+            <Input
+              placeholder="text-embedding-3-small"
+              value={state.embeddingModel}
+              onChange={e => onChange({ embeddingModel: e.target.value })}
+              className={inputCls}
+            />
+          )}
         </div>
         <div className="space-y-2">
           <label className="text-xs font-medium text-slate-500">Model Audio (Speech-to-Text)</label>
-          <Input
-            list="ob-audio-models"
-            placeholder="whisper-1"
-            value={state.audioModel}
-            onChange={e => onChange({ audioModel: e.target.value })}
-            className={inputCls}
-          />
-          <datalist id="ob-audio-models">
-            {fetchedModels.map(m => <option key={m} value={m} />)}
-          </datalist>
+          {fetchedModels.length > 0 ? (
+            <select
+              value={customAudio ? 'custom' : state.audioModel}
+              onChange={e => {
+                const val = e.target.value
+                if (val === 'custom') {
+                  setCustomAudio(true)
+                  setCustomAudioId('')
+                  onChange({ audioModel: '' })
+                } else {
+                  setCustomAudio(false)
+                  onChange({ audioModel: val })
+                }
+              }}
+              className="w-full h-10 rounded-md border border-slate-200 bg-slate-50 text-slate-900 px-3 text-sm focus:outline-none focus-visible:ring-indigo-400"
+            >
+              <option value="" disabled>Pilih Model...</option>
+              {fetchedModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              <option value="custom">✍️ Custom Model...</option>
+            </select>
+          ) : (
+            <Input
+              placeholder="whisper-1"
+              value={state.audioModel}
+              onChange={e => onChange({ audioModel: e.target.value })}
+              className={inputCls}
+            />
+          )}
         </div>
       </div>
+
+      {customEmbedding && fetchedModels.length > 0 && (
+        <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+          <label className="text-xs font-medium text-slate-500">Model Embedding Kustom</label>
+          <Input
+            placeholder="Ketik model embedding kustom..."
+            value={customEmbeddingId}
+            onChange={e => {
+              const val = e.target.value
+              setCustomEmbeddingId(val)
+              onChange({ embeddingModel: val })
+            }}
+            className={inputCls}
+          />
+        </div>
+      )}
+
+      {customAudio && fetchedModels.length > 0 && (
+        <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+          <label className="text-xs font-medium text-slate-500">Model Audio Kustom</label>
+          <Input
+            placeholder="Ketik model audio kustom..."
+            value={customAudioId}
+            onChange={e => {
+              const val = e.target.value
+              setCustomAudioId(val)
+              onChange({ audioModel: val })
+            }}
+            className={inputCls}
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="text-xs font-medium text-slate-500">API Base URL</label>
