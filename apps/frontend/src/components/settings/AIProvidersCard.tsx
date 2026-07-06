@@ -35,12 +35,15 @@ export function AIProvidersCard() {
   })
 
   const [form, setForm] = useState<AIProviderForm | null>(null)
+  const [liveModels, setLiveModels] = useState<string[]>([])
+  const [fetchingLiveModels, setFetchingLiveModels] = useState(false)
 
   const createMutation = useMutation({
     mutationFn: (data: AIProviderForm) => api.post('/ai/providers', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-providers'] })
       setForm(null)
+      setLiveModels([])
     },
   })
 
@@ -53,14 +56,36 @@ export function AIProvidersCard() {
     const matched = (catalog?.providers || []).find(
       p => p.name.toLowerCase() === name.toLowerCase() || p.id.toLowerCase() === name.toLowerCase()
     )
+    setLiveModels([])
     setForm(prev => prev
       ? { ...prev, name, apiBaseUrl: matched?.api || prev.apiBaseUrl, modelId: matched?.models?.[0] || prev.modelId }
       : null
     )
   }
 
+  const fetchLiveModels = async () => {
+    if (!form || !form.apiBaseUrl || !form.apiKey) return
+    setFetchingLiveModels(true)
+    try {
+      const res = await api.post<{ status: string; models?: string[]; detail?: string }>('/ai/providers/test', {
+        api_base_url: form.apiBaseUrl,
+        api_key: form.apiKey,
+      })
+      if (res.status === 'ok' && res.models) {
+        setLiveModels(res.models)
+      } else {
+        alert(res.detail || 'Gagal mengambil daftar model. Periksa API Key dan Base URL.')
+      }
+    } catch (e: any) {
+      alert(e.message || 'Gagal terhubung ke provider.')
+    } finally {
+      setFetchingLiveModels(false)
+    }
+  }
+
   const modelSuggestions = (() => {
     if (!form) return []
+    if (liveModels.length > 0) return liveModels
     const matched = (catalog?.providers || []).find(
       p => p.name.toLowerCase() === form.name.toLowerCase() || p.id.toLowerCase() === form.name.toLowerCase()
     )
@@ -78,7 +103,10 @@ export function AIProvidersCard() {
           <Button
             variant="outline" size="sm"
             className="h-8 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            onClick={() => setForm({ providerType: 'chat', name: '', apiBaseUrl: '', apiKey: '', modelId: '' })}
+            onClick={() => {
+              setForm({ providerType: 'chat', name: '', apiBaseUrl: '', apiKey: '', modelId: '' })
+              setLiveModels([])
+            }}
           >
             <Plus className="h-4 w-4 mr-1 text-indigo-500" /> Add Provider
           </Button>
@@ -210,14 +238,21 @@ export function AIProvidersCard() {
                 <Button
                   variant="outline" size="icon"
                   className="h-8 w-8 border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50"
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['ai-models'] })}
+                  onClick={fetchLiveModels}
+                  disabled={fetchingLiveModels || !form.apiBaseUrl || !form.apiKey}
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <RefreshCw className={`h-3.5 w-3.5 ${fetchingLiveModels ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-800" onClick={() => setForm(null)}>
+              <Button
+                variant="ghost" size="sm" className="text-slate-500 hover:text-slate-800"
+                onClick={() => {
+                  setForm(null)
+                  setLiveModels([])
+                }}
+              >
                 Cancel
               </Button>
               <Button
