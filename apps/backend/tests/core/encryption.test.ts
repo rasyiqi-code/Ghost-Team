@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encrypt, decrypt } from './encryption.js'
+import { encrypt, decrypt } from '../../src/core/encryption.js'
 
 describe('encryption', () => {
   it('should encrypt and decrypt a string correctly', () => {
