@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Globe, Plus, RefreshCw, Check, Copy, Loader2 } from 'lucide-react'
+import { Globe, Plus, RefreshCw, Check, Copy, Loader2, ChevronDown } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { PlatformConnection } from '@/types'
 
@@ -178,10 +178,25 @@ export function PlatformsCard() {
   const [testingPlatform, setTestingPlatform] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; error?: string } | null>>({})
   const [showForm, setShowForm] = useState(false)
+  const [newPlatform, setNewPlatform] = useState('telegram')
+  const [newCredentials, setNewCredentials] = useState('')
+  const [newPlatformUserId, setNewPlatformUserId] = useState('')
 
   const migrateMutation = useMutation({
     mutationFn: () => api.post<{ message: string }>('/settings/platforms/migrate'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platforms'] }),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (data: { platform: string; credentials?: string; platform_user_id?: string }) =>
+      api.post('/settings/platforms', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platforms'] })
+      setShowForm(false)
+      setNewPlatform('telegram')
+      setNewCredentials('')
+      setNewPlatformUserId('')
+    },
   })
 
   const updateMutation = useMutation({
@@ -266,6 +281,84 @@ export function PlatformsCard() {
                 onToggleActive={() => updateMutation.mutate({ id: p.id, data: { is_active: !p.is_active } })}
               />
             ))}
+          </div>
+        )}
+
+        {showForm && (
+          <div className="mt-6 rounded-xl border border-cyan-100 bg-cyan-50/20 p-5 space-y-4 animate-in slide-in-from-top-2 duration-200">
+            <h4 className="font-semibold text-xs text-slate-500 uppercase tracking-wider">Connect New Platform</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Platform</label>
+                <div className="relative">
+                  <select
+                    value={newPlatform}
+                    onChange={e => setNewPlatform(e.target.value)}
+                    className="h-8 w-full appearance-none rounded-md border border-slate-200 bg-white px-3 pr-8 text-xs text-slate-800 outline-none focus:border-cyan-400 transition-all cursor-pointer"
+                  >
+                    <option value="telegram">Telegram</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="slack">Slack</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  {newPlatform === 'telegram' ? 'Bot Token' : newPlatform === 'whatsapp' ? 'Access Token' : 'OAuth Token'}
+                </label>
+                <input
+                  type="password"
+                  value={newCredentials}
+                  onChange={e => setNewCredentials(e.target.value)}
+                  placeholder={newPlatform === 'telegram' ? '123456:ABC...' : 'Enter credentials...'}
+                  className="h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder-slate-300 outline-none focus:border-cyan-400 transition-colors"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                {newPlatform === 'telegram' ? 'Chat ID (Optional)' : newPlatform === 'whatsapp' ? 'Phone ID (Optional)' : 'Workspace ID (Optional)'}
+              </label>
+              <input
+                type="text"
+                value={newPlatformUserId}
+                onChange={e => setNewPlatformUserId(e.target.value)}
+                placeholder="Enter identifier..."
+                className="h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder-slate-300 outline-none focus:border-cyan-400 transition-colors"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="ghost" size="sm" className="text-slate-500 hover:text-slate-800"
+                onClick={() => {
+                  setShowForm(false)
+                  setNewCredentials('')
+                  setNewPlatformUserId('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                disabled={createMutation.isPending || !newCredentials}
+                onClick={async () => {
+                  try {
+                    await createMutation.mutateAsync({
+                      platform: newPlatform,
+                      credentials: newCredentials,
+                      platform_user_id: newPlatformUserId || undefined,
+                    })
+                  } catch (e: any) {
+                    alert(e.response?.data?.detail || e.message || 'Gagal menghubungkan platform.')
+                  }
+                }}
+              >
+                {createMutation.isPending ? 'Connecting...' : 'Connect'}
+              </Button>
+            </div>
           </div>
         )}
 
