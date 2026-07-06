@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { db } from '@ghost/database'
 import { listAvailableModels } from '../../core/ai-models.js'
+import { resolveProviderBaseUrl } from '../../core/ai-client.js'
 import { validate, sendValidationError, ValidationError } from '../../core/validation.js'
 import { encrypt, decrypt } from '../../core/encryption.js'
 import { aiProviderCreateSchema, aiProviderUpdateSchema } from '@ghost/shared'
@@ -31,18 +32,23 @@ export async function handleCreateProvider(req: FastifyRequest, reply: FastifyRe
   }
   const { provider_type, name, api_base_url, api_key, model_id, is_active = true } = body
   const encryptedKey = encrypt(api_key ?? '')
-  const provider = await db.aIProvider.create({
-    data: {
-      userId: req.userId,
-      providerType: provider_type,
-      name,
-      apiBaseUrl: api_base_url.replace(/\/+$/, '') + '/v1',
-      apiKey: encryptedKey,
-      modelId: model_id,
-      isActive: is_active,
-    }
-  })
-  reply.status(201).send({ ...provider, apiKey: decrypt(provider.apiKey) })
+  try {
+    const provider = await db.aIProvider.create({
+      data: {
+        userId: req.userId,
+        providerType: provider_type,
+        name,
+        apiBaseUrl: await resolveProviderBaseUrl(api_base_url, name, model_id),
+        apiKey: encryptedKey,
+        modelId: model_id,
+        isActive: is_active,
+      }
+    })
+    reply.status(201).send({ ...provider, apiKey: decrypt(provider.apiKey) })
+  } catch (dbErr) {
+    console.error('DATABASE ERROR IN handleCreateProvider:', dbErr)
+    throw dbErr
+  }
 }
 
 export async function handleUpdateProvider(req: FastifyRequest, reply: FastifyReply) {
@@ -71,8 +77,12 @@ export async function handleUpdateProvider(req: FastifyRequest, reply: FastifyRe
   if (body.api_key !== undefined) {
     updateData.apiKey = encrypt(String(body.api_key))
   }
-  if (body.api_base_url) {
-    updateData.apiBaseUrl = String(body.api_base_url).replace(/\/+$/, '') + '/v1'
+  
+  if (body.api_base_url !== undefined || body.name !== undefined || body.model_id !== undefined) {
+    const targetName = body.name !== undefined ? String(body.name) : existing.name
+    const targetModel = body.model_id !== undefined ? String(body.model_id) : existing.modelId
+    const targetUrl = body.api_base_url !== undefined ? String(body.api_base_url) : existing.apiBaseUrl
+    updateData.apiBaseUrl = await resolveProviderBaseUrl(targetUrl, targetName, targetModel)
   }
 
   const updated = await db.aIProvider.update({
@@ -125,8 +135,8 @@ export async function handleBrowseProviderModels(req: FastifyRequest): Promise<{
 }
 
 export async function handleTestProvider(req: FastifyRequest) {
-  const { api_base_url, api_key } = req.body as { api_base_url: string; api_key?: string }
-  const baseURL = api_base_url.replace(/\/+$/, '') + '/v1'
+  const { api_base_url, api_key, name, model_id } = req.body as { api_base_url: string; api_key?: string; name?: string; model_id?: string }
+  const baseURL = await resolveProviderBaseUrl(api_base_url, name, model_id)
   try {
     const OpenAI = (await import('openai')).default
     const client = new OpenAI({ apiKey: api_key ?? '', baseURL })

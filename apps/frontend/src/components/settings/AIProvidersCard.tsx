@@ -77,7 +77,7 @@ export function AIProvidersCard() {
       p => p.name.toLowerCase() === name.toLowerCase() || p.id.toLowerCase() === name.toLowerCase()
     )
     setForm(prev => prev
-      ? { ...prev, name, apiBaseUrl: matched?.api || prev.apiBaseUrl, modelId: matched?.models?.[0] || prev.modelId }
+      ? { ...prev, name, apiBaseUrl: matched?.api || '', modelId: matched?.models?.[0] || prev.modelId }
       : null
     )
   }
