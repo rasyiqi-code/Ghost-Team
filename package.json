@@ -18,13 +18,17 @@
     "db:migrate": "bun --cwd packages/database prisma migrate dev"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
-    "typescript": "~6.0.2"
+    "@types/qrcode": "^1.5.6",
+    "turbo": "^2.5.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["*"]
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "qrcode": "^1.5.4"
   }
 }

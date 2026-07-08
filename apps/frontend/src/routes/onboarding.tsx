@@ -24,8 +24,6 @@ function OnboardingPage() {
   // Step 2
   const [workspacePurpose, setWorkspacePurpose] = useState('Sinkronisasi Tim & Koordinasi Developer')
   const [workspaceContext, setWorkspaceContext] = useState('')
-  // Step 3
-  const [invitedEmailsStr, setInvitedEmailsStr] = useState('')
   // Step 4
   const [aiState, setAiState] = useState({
     provider: '', apiKey: '', model: '', embeddingModel: '', audioModel: '', baseUrl: '',
@@ -35,12 +33,10 @@ function OnboardingPage() {
   const handleSubmit = async () => {
     setLoading(true)
     try {
-      const invitedEmails = invitedEmailsStr.split(',').map(e => e.trim()).filter(Boolean)
       await api.post('/settings/onboarding', {
         workspaceName,
         workspacePurpose,
         workspaceContext,
-        invitedEmails,
         aiProvider: aiState.provider,
         aiApiKey: aiState.apiKey,
         aiModel: aiState.model,
@@ -64,7 +60,7 @@ function OnboardingPage() {
         onPurposeChange={setWorkspacePurpose} onContextChange={setWorkspaceContext}
       />
     ),
-    3: <StepInvite invitedEmailsStr={invitedEmailsStr} onChange={setInvitedEmailsStr} />,
+    3: <StepInvite />,
     4: (
       <StepAIProvider
         state={aiState}

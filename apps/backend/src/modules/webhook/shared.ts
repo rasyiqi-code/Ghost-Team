@@ -4,9 +4,8 @@ import { env } from '@ghost/config'
 import { join } from 'node:path'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import { generateEmbedding } from '../../core/ai-embedding.js'
-import { generateAutoReply } from '../../core/ai-chat.js'
-import { memoryStore } from '../../core/memory-store.js'
+import { ragSearchAndReply } from '../../core/auto-reply.js'
+import { getSetting } from '../../core/db-settings.js'
 
 export let socketIO: SocketIOServer
 
@@ -14,7 +13,7 @@ export function setSocketIO(io: SocketIOServer) {
   socketIO = io
 }
 
-export async function getUserIdForPlatform(platform: string, platformUserId?: string): Promise<number> {
+export async function getUserIdForPlatform(platform: string, platformUserId?: string): Promise<string> {
   const conditions: any = { platform, isActive: true }
   if (platformUserId) {
     conditions.platformUserId = platformUserId
@@ -32,7 +31,7 @@ export async function getUserIdForPlatform(platform: string, platformUserId?: st
 }
 
 export async function processFileWebhook(
-  userId: number,
+  userId: string,
   fileUrl: string,
   originalName: string,
   fileType: string,
@@ -66,30 +65,35 @@ export async function triggerAutoReply(
   platform: string,
   sender: string,
   question: string,
-  userId: number,
+  userId: string,
   creds?: unknown,
+  recipientId?: string,
 ): Promise<void> {
   try {
-    const queryEmbedding = await generateEmbedding(question, userId)
-    const matches = await memoryStore.searchChat(queryEmbedding, 3, { userId: String(userId) })
-    const filtered = matches.filter(m => m.similarity >= 0.6)
-    if (!filtered.length) return
+    // Auto-reply harus diaktifkan secara eksplisit oleh user (FP-2)
+    const enabled = await getSetting('auto_reply_enabled', 'false')
+    if (enabled !== 'true') return
 
-    const context = filtered.map(m => m.content)
-    const answer = await generateAutoReply(question, context)
-    const best = filtered[0]!
-    const meta = best.metadata as any
-    const source = `${meta.sender ?? 'unknown'} di ${meta.platform ?? platform}`
-    const autoReplyData = { status: 'found', answer, source, sender, platform, originalQuestion: question }
+    const result = await ragSearchAndReply(question, userId)
+    if (!result.hasMatch) return
+
+    const autoReplyData = {
+      status: 'found',
+      answer: result.answer,
+      source: result.source,
+      sender,
+      platform,
+      originalQuestion: question,
+    }
 
     try {
       socketIO.to(`user:${userId}`).emit('auto_reply', autoReplyData)
     } catch { /* ws skip */ }
 
-    if (answer) {
-      const cited = `${answer}\n\n— Sumber: ${source}`
+    if (result.answer) {
       const { platformService } = await import('../../core/platform-service.js')
-      await platformService.sendMessage(platform, sender, cited, creds as any)
+      const targetId = recipientId || sender
+      await platformService.sendMessage(platform, targetId, result.cited, creds as any)
     }
   } catch (err) {
     console.error('Auto reply failed:', err)

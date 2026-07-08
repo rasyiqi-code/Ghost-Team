@@ -61,4 +61,8 @@ export type SocketEvents = {
   voice_processed: (data: unknown) => void
   file_indexed: (data: unknown) => void
   auto_reply: (data: unknown) => void
+  new_notification: (data: unknown) => void
+  'whatsapp:qr': (data: { qr: string; qrDataUrl?: string; connectionId: number; message: string }) => void
+  'whatsapp:ready': (data: { connectionId: number; phoneNumber: string }) => void
+  'whatsapp:disconnected': (data: { connectionId: number; reason: string }) => void
 }

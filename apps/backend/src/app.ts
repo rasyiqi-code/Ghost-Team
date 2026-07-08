@@ -25,6 +25,8 @@ import { reportsModule } from './modules/reports/index.js'
 import { aiModule } from './modules/ai/index.js'
 import { webhookModule } from './modules/webhook/index.js'
 import { settingsModule } from './modules/settings/index.js'
+import { adminModule } from './modules/admin/index.js'
+import { notificationsModule } from './modules/notifications/index.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const httpServer = createServer()
@@ -65,6 +67,20 @@ export async function buildApp() {
   await app.register(authPlugin)
   await app.register(socketPlugin)
 
+  // BUG-6: event bus listeners untuk observability
+  eventBus.on('message:created', (data) => {
+    app.log.debug({ event: 'message:created', id: data.id, platform: data.platform }, 'Message created')
+  })
+  eventBus.on('voice:processed', (data) => {
+    app.log.info({ event: 'voice:processed', id: data.id, status: data.status }, 'Voice processed')
+  })
+  eventBus.on('file:indexed', (data) => {
+    app.log.info({ event: 'file:indexed', fileId: data.fileId, status: data.status }, 'File indexed')
+  })
+  eventBus.on('auto:reply', (data) => {
+    app.log.info({ event: 'auto:reply', platform: data.platform, status: data.status }, 'Auto-reply triggered')
+  })
+
   await app.register(authModule, { prefix: '/api/auth' })
   await app.register(messagesModule, { prefix: '/api' })
   await app.register(voiceModule, { prefix: '/api' })
@@ -75,8 +91,55 @@ export async function buildApp() {
   await app.register(aiModule, { prefix: '/api' })
   await app.register(webhookModule, { prefix: '/api' })
   await app.register(settingsModule, { prefix: '/api' })
+  await app.register(adminModule, { prefix: '/api' })
+  await app.register(notificationsModule, { prefix: '/api' })
 
-  app.get('/api/health', async () => ({ status: 'ok' }))
+  app.get('/api/health', async () => {
+    const start = Date.now()
+    const checks: Record<string, string> = {}
+
+    // Database ping
+    try {
+      await db.$queryRaw`SELECT 1`
+      checks.database = 'ok'
+    } catch {
+      checks.database = 'error'
+    }
+
+    // Redis ping (optional — hanya jika REDIS_URL dikonfigurasi)
+    if (env.REDIS_URL) {
+      try {
+        const IORedis = (await import('ioredis')).default
+        const redis = new IORedis(env.REDIS_URL, {
+          lazyConnect: true,
+          maxRetriesPerRequest: 0,
+          retryStrategy: () => null,
+        })
+        await redis.connect()
+        await redis.ping()
+        await redis.quit()
+        checks.redis = 'ok'
+      } catch {
+        checks.redis = 'error'
+      }
+    }
+
+    const mem = process.memoryUsage()
+
+    return {
+      status: checks.database === 'ok' ? 'ok' : 'degraded',
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      responseTimeMs: Date.now() - start,
+      checks,
+      memory: {
+        rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
+        heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
+        heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
+      },
+      environment: env.ENVIRONMENT,
+    }
+  })
 
   if (env.FRONTEND_DIR) {
     const staticDir = resolve(env.FRONTEND_DIR)

@@ -16,7 +16,7 @@ export function SystemConfigCard() {
 
   const { data: envSettings = [], isLoading, isError } = useQuery<EnvSetting[]>({
     queryKey: ['env-settings'],
-    queryFn: () => api.get('/settings/env'),
+    queryFn: () => api.get('/settings/env', { silent: true }),
   })
 
   const [envEdits, setEnvEdits] = useState<Record<string, string>>({})

@@ -4,7 +4,7 @@ import { fromNodeHeaders } from 'better-auth/node'
 import { auth } from '../core/auth.js'
 
 export async function authPlugin(app: FastifyInstance): Promise<void> {
-  app.decorateRequest('userId', 0)
+  app.decorateRequest('userId', '')
 
   app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -15,7 +15,7 @@ export async function authPlugin(app: FastifyInstance): Promise<void> {
         reply.status(401).send({ detail: 'Invalid or expired session' })
         return
       }
-      request.userId = Number(session.user.id)
+      request.userId = session.user.id
     } catch {
       reply.status(401).send({ detail: 'Authentication failed' })
     }

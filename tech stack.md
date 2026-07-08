@@ -1,248 +1,207 @@
-# PRD - Tech Stack (Ghost Relay)
+# Tech Stack — Ghost Relay
 
-**Dokumen ini adalah lampiran teknis dari PRD utama Ghost Relay.** Berisi spesifikasi lengkap teknologi yang akan digunakan untuk membangun produk.
-
-
-## 1. Ringkasan Arsitektur
-
-Ghost Relay dibangun dengan arsitektur **full-stack terpisah (decoupled)** :
+## Ringkasan Arsitektur
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER INTERFACE                         │
-│                  Web App (React + TanStack)                    │
-│                         (Vite / SPA)                           │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React SPA)                         │
+│   TanStack Router · TanStack Query v5 · Zustand v5                  │
+│   shadcn/ui · Tailwind CSS v4 · Socket.io-client                    │
+│   Vite · TypeScript 6.x                                              │
+└──────────────────────────────────────────────────────────────────────┘
                               │
-                              ▼ WebSocket + REST API
-┌─────────────────────────────────────────────────────────────────┐
-│                      BACKEND API (FastAPI)                     │
-│              ┌─────────────────────────────────────┐           │
-│              │     Background Task Queue (Celery)  │           │
-│              └─────────────────────────────────────┘           │
-└─────────────────────────────────────────────────────────────────┘
+                  REST + WebSocket (Socket.io)
+                              ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    BACKEND (Modular Monolith)                        │
+│   Fastify v5 · Socket.io · TypeScript 6.x · Node.js 22+             │
+│                                                                      │
+│   Modules:       │   Core:                    │   Plugins:           │
+│   ─────────      │   ──────────               │   ─────────          │
+│   auth           │   AI (Vercel AI SDK)       │   auth (JWT)         │
+│   messages       │   Encryption (AES-256-GCM) │   socket (WS auth)   │
+│   voice          │   EventBus                  │                      │
+│   files          │   TaskQueue (BullMQ/Redis) │                      │
+│   platforms      │   Vector Store (PG JSONB)  │                      │
+│   memory         │   Chat SDK (@chat-adapter) │                      │
+│   reports        │   Memory Store             │                      │
+│   ai             │                             │                      │
+│   webhook        │                             │                      │
+│   settings       │                             │                      │
+└──────────────────────────────────────────────────────────────────────┘
                               │
           ┌───────────────────┼───────────────────┐
           ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────┐
-│   PostgreSQL    │ │    ChromaDB     │ │  Qwen Cloud API         │
-│   (Data Utama)  │ │   (Vector DB)   │ │  (LLM + Speech-to-Text) │
-└─────────────────┘ └─────────────────┘ └─────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              EXTERNAL PLATFORMS (Webhook/Socket)               │
-│         WhatsApp │ Telegram │ Slack                            │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────────┐
+│   PostgreSQL     │ │   Redis          │ │  External APIs           │
+│   (Prisma ORM)   │ │   (BullMQ,       │ │                          │
+│   + JSONB vector │ │    Chat SDK)     │ │  · OpenAI-compatible LLM │
+│                  │ │                  │ │  · WhatsApp Cloud API    │
+│                  │ │                  │ │  · Telegram Bot API      │
+│                  │ │                  │ │  · Slack Events API      │
+│                  │ │                  │ │  · models.dev catalog    │
+└──────────────────┘ └──────────────────┘ └──────────────────────────┘
 ```
-
-
-## 2. Frontend Stack
-
-### 2.1. Core Framework
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **UI Library** | React 19 | Ekosistem terbesar, kompatibel penuh dengan TanStack, dukungan React Compiler stabil  |
-| **Bahasa** | TypeScript 5.x | Type safety end-to-end, error tertangkap sebelum runtime  |
-| **Build Tool** | Vite | Super cepat, HMR instan, lebih ringan dari Webpack |
-
-### 2.2. TanStack Ecosystem (Inti)
-
-| Tool | Versi | Fungsi | Alasan |
-| :--- | :--- | :--- | :--- |
-| **TanStack Router** | Latest | Routing type-safe | Type safety terkuat di ekosistem React. Routes, params, search parameters fully typed. TypeScript menangkap error routing sebelum kode jalan |
-| **TanStack Query** | v5 | Server state management | Standar de facto untuk data fetching. Handle caching, background refetch, loading states, error handling otomatis. Pisahkan server state (Query) dari UI state (Zustand) |
-| **TanStack Form** | Latest | Form & validasi | Headless, fleksibel. Bisa tentukan kapan validasi terjadi (onChange, onBlur, onSubmit). Integrasi native dengan Zod |
-| **TanStack Table** (Opsional) | v9 | Data table | Untuk Side Panel Knowledge Vault. V9 lebih tree-shakable, memory lebih ringan |
-
-### 2.3. State Management
-
-| Jenis State | Tool | Alasan |
-| :--- | :--- | :--- |
-| **Server State** | TanStack Query | Data dari API, database, backend—butuh caching, refetch, sync |
-| **Client/UI State** | Zustand | Ringan, pattern slices. Untuk state UI seperti: sidebar terbuka/tutup, current chat filter, theme |
-
-### 2.4. UI Component & Styling
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Component Library** | shadcn/ui | Headless, aksesibel, kustomisasi penuh. Komponen siap pakai tapi source code ada di project kita |
-| **Styling** | Tailwind CSS | Utility-first, cepat, konsisten dengan shadcn/ui |
-| **Icons** | Lucide React | Library icon terpopuler untuk React, ringan |
-
-### 2.5. Real-time Communication
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **WebSocket Client** | Socket.io-client | Real-time bidirectional. Handle reconnect otomatis, fallback ke long-polling jika WebSocket tidak support |
-
-### 2.6. Voice Input (Browser)
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Audio Recording** | MediaRecorder API (native) | Capture microphone via browser `getUserMedia()` |
-| **Audio Processing** | Kirim WAV/Opus ke backend | Backend yang handle transkripsi (via Qwen/Whisper) |
-
-
-## 3. Backend Stack
-
-### 3.1. Core Framework
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Framework** | FastAPI (Python 3.12+) | Async-first, automatic OpenAPI docs, Pydantic v2 untuk validasi |
-| **ASGI Server** | Uvicorn | High-performance ASGI server untuk production |
-
-### 3.2. Background Task Queue
-
-Ghost Relay punya banyak tugas berat yang **tidak boleh blocking** request-response:
-
-- Transkripsi voice note (bisa 3-10 detik)
-- Dekomposisi tugas via LLM
-- Indexing file ke vector database
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Task Queue** | Celery | Gold standard untuk background tasks di Python. Untuk tugas > 60 detik, wajib pake Celery |
-| **Broker** | Redis | Ringan, cepat, support Celery |
-| **Result Backend** | Redis | Menyimpan hasil task untuk diambil frontend |
-
-**Pattern**: Endpoint FastAPI menerima request → langsung return `202 Accepted` → Celery process di background → frontend polling atau WebSocket notifikasi saat selesai
-
-### 3.3. Real-time Communication
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **WebSocket Server** | Socket.io (via Python library `python-socketio`) | Real-time push ke frontend: pesan masuk baru, voice note selesai diproses, notifikasi |
-
-### 3.4. External Platform Integration
-
-| Platform | Library/Method | Alasan |
-| :--- | :--- | :--- |
-| **Telegram** | `python-telegram-bot` | Library paling mature, dukungan webhook + polling |
-| **Slack** | `slack-bolt` (Socket Mode) | Socket Mode = tidak perlu webhook publik, cocok development |
-| **WhatsApp** | WhatsApp Business Cloud API (REST) | Official Meta API. Webhook untuk inbound, REST call untuk outbound |
-
-### 3.5. AI/LLM Integration
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **LLM API** | Qwen Cloud (via OpenAI-compatible SDK) | Base URL: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. Bisa pake OpenAI SDK langsung |
-| **Speech-to-Text** | Qwen Cloud Audio API atau Whisper (local/edge) | Transkripsi voice note |
-| **Embedding** | Qwen Embedding API | Untuk semantic search di ChromaDB |
-
-**Model yang direkomendasikan**:
-- **Dekomposisi tugas**: Qwen-Plus atau Qwen-Max (butuh structured output/JSON mode)
-- **Ringkasan**: Qwen-Flash (cepat, murah)
-- **Auto-reply**: Qwen-Flash
-- **Embedding**: Qwen embedding model
-
-### 3.6. Database Layer
-
-#### A. Primary Database (Structured Data)
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Database** | PostgreSQL | Reliable, mature, support JSONB untuk fleksibilitas |
-| **ORM** | SQLAlchemy 2.0 (async) | Async support, migration via Alembic |
-
-**Schema utama**:
-- `users` - user accounts, settings
-- `messages` - all chat messages (platform, sender, content, timestamp)
-- `platform_connections` - user's WA/TG/Slack credentials
-- `files` - metadata file di Knowledge Vault
-- `tasks` - hasil dekomposisi voice note
-
-#### B. Vector Database (Memory & Semantic Search)
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Vector DB** | ChromaDB | Open source, `pip install chromadb`. Support lokal (memory/disk). 5 menit setup. Perfect untuk MVP, nanti bisa migrasi ke production-grade |
-
-**Fungsi ChromaDB di Ghost Relay**:
-- Menyimpan embedding dari semua chat + voice note
-- Semantic search untuk auto-reply (cari jawaban dari histori)
-- Indexing file content untuk Knowledge Vault
-
-### 3.7. File Storage
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **File Storage** | Cloud Storage (S3-compatible) | Untuk menyimpan file yang diupload ke Knowledge Vault |
-| **Provider** | DigitalOcean Spaces atau MinIO (self-hosted) | Murah, S3-compatible |
-
-
-## 4. Infrastructure & Deployment
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Frontend Hosting** | Vercel | Deploy otomatis dari Git, CDN global, free tier cukup |
-| **Backend Hosting** | Railway / Fly.io | Mudah deploy, support Docker, auto-scaling |
-| **Container** | Docker + Docker Compose | Standardisasi environment, mudah pindah provider |
-| **Environment Variables** | `.env` + platform secret manager | API keys, database URL, dll. |
-
-
-## 5. Development Tooling
-
-| Komponen | Pilihan | Alasan |
-| :--- | :--- | :--- |
-| **Package Manager** | pnpm (frontend) / pip + poetry (backend) | pnpm lebih cepat & hemat disk |
-| **Linting** | ESLint + Prettier (frontend) / Ruff (backend) | Konsistensi kode |
-| **Type Checking** | TypeScript (frontend) / mypy (backend) | Type safety |
-| **Git Hooks** | Husky + lint-staged | Auto lint sebelum commit |
-| **API Testing** | Postman / Bruno | Manual testing API |
-| **Local Dev** | Docker Compose (PostgreSQL, Redis, ChromaDB) | Satu command spin up semua dependency |
-
-
-## 6. Security Considerations
-
-| Area | Pendekatan |
-| :--- | :--- |
-| **API Keys** | Disimpan di environment variables, never in code |
-| **User Auth** | JWT-based authentication (simple, stateless) |
-| **Platform Credentials** | Encrypt di database sebelum disimpan |
-| **CORS** | Restricted ke frontend domain saja |
-| **Rate Limiting** | Batasi request per user (mencegah abuse API Qwen) |
-
-
-## 7. Ringkasan Tech Stack (TL;DR)
-
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend Framework** | React 19 + TypeScript 5.x + Vite |
-| **Routing** | TanStack Router |
-| **Server State** | TanStack Query v5 |
-| **Client State** | Zustand |
-| **Form** | TanStack Form + Zod |
-| **UI** | shadcn/ui + Tailwind CSS |
-| **WebSocket Client** | Socket.io-client |
-| **Backend Framework** | FastAPI (Python 3.12+) |
-| **Task Queue** | Celery + Redis |
-| **WebSocket Server** | python-socketio |
-| **ORM** | SQLAlchemy 2.0 (async) |
-| **Primary DB** | PostgreSQL |
-| **Vector DB** | ChromaDB |
-| **LLM** | Qwen Cloud API (OpenAI-compatible) |
-| **External Chat** | WhatsApp Cloud API, python-telegram-bot, slack-bolt |
-| **Frontend Hosting** | Vercel |
-| **Backend Hosting** | Railway / Fly.io |
-| **Container** | Docker + Docker Compose |
-
-
-## 8. Catatan Penting
-
-1. **Ghost Relay adalah SPA (Single Page Application)** , bukan SSR. TanStack Start (SSR framework) tidak diperlukan karena semua interaksi real-time via WebSocket.
-
-2. **TanStack Router dipilih karena type safety-nya** yang jauh lebih kuat dari React Router. Routes, params, search parameters semuanya fully typed.
-
-3. **TanStack Query vs Zustand**: Query untuk **server state** (data dari API), Zustand untuk **UI state** (sidebar toggle, filter, theme). Jangan campur.
-
-4. **Voice note processing** harus via background task (Celery) karena bisa makan waktu 5-10 detik. Jangan blocking request-response.
-
-5. **ChromaDB untuk MVP**—cukup untuk hackathon. Nanti bisa migrasi ke Pinecone atau Weaviate jika skala membesar.
 
 ---
 
-Ini adalah tech stack PRD lengkap untuk Ghost Relay. Semua keputusan didasarkan pada kebutuhan fungsional produk dan tren teknologi 2026. Ada bagian yang mau didiskusikan lebih lanjut?
+## Frontend Stack
+
+| Komponen | Pilihan | Alasan |
+|----------|---------|--------|
+| **Framework** | React 19 + TypeScript 6.x | Ekosistem terbesar, React Compiler |
+| **Build Tool** | Vite 8.x | Super cepat, HMR instan |
+| **Routing** | TanStack Router | Type-safe penuh (routes, params, search params) |
+| **Server State** | TanStack Query v5 | Caching, refetch, loading states otomatis |
+| **Client State** | Zustand v5 | Ringan, pattern slices |
+| **UI Library** | shadcn/ui + @base-ui/react + Tailwind CSS v4 | Aksesibel, kustomisasi penuh |
+| **Icons** | Lucide React | Library icon terpopuler |
+| **WebSocket** | Socket.io-client | Reconnect otomatis, fallback long-polling |
+| **AI Components** | ai-elements (48 komponen) | Message, Conversation, PromptInput, CodeBlock, dll |
+| **Markdown** | Streamdown (cjk, code, math, mermaid) | Render plugin-based |
+| **Syntax Highlight** | Shiki | Github-light/dark themes |
+| **Form** | TanStack Form + Zod | Headless, validasi native |
+
+---
+
+## Backend Stack
+
+| Komponen | Pilihan | Alasan |
+|----------|---------|--------|
+| **Framework** | Fastify v5 | Async-first,高性能, plugin-based |
+| **Bahasa** | TypeScript 6.x + Node.js 22+ | Type safety + ESM native |
+| **Runtime** | tsx (dev), Node.js (production) | Hot-reload, ESM |
+
+### Database
+
+| Komponen | Pilihan |
+|----------|---------|
+| **Primary DB** | PostgreSQL 16 |
+| **ORM** | Prisma 6.x |
+| **Vector Store** | PostgreSQL JSONB + Cosine Similarity in-memory |
+
+### AI / LLM
+
+| Komponen | Pilihan |
+|----------|---------|
+| **AI SDK** | Vercel AI SDK (`ai` v7) |
+| **Providers** | `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google` |
+| **Audio** | OpenAI SDK (`client.audio.transcriptions.create`) |
+| **Catalog** | models.dev — dynamic provider/model discovery |
+
+### Task Queue
+
+| Komponen | Pilihan |
+|----------|---------|
+| **Queue** | BullMQ (Redis) |
+| **Fallback** | Local `setImmediate` queue |
+| **Redis** | ioredis |
+
+### Real-time
+
+| Komponen | Pilihan |
+|----------|---------|
+| **Server** | Socket.io (Node.js) |
+| **Client** | Socket.io-client |
+
+### Chat Integration
+
+| Platform | Library |
+|----------|---------|
+| **Telegram** | `@chat-adapter/telegram` |
+| **WhatsApp** | `@chat-adapter/whatsapp` |
+| **Slack** | `@chat-adapter/slack` |
+| **State** | `@chat-adapter/state-redis` |
+
+### Auth & Security
+
+| Komponen | Pilihan |
+|----------|---------|
+| **Auth** | Better Auth + Prisma adapter |
+| **Encryption** | AES-256-GCM (Node.js crypto) |
+| **JWT** | jsonwebtoken |
+| **Rate Limit** | `@fastify/rate-limit` |
+| **CORS** | `@fastify/cors` |
+
+---
+
+## Struktur Monorepo (pnpm Workspaces + Turborepo)
+
+```
+ghost-team/
+├── apps/
+│   ├── backend/         # @ghost/backend — Fastify API server
+│   │   └── src/
+│   │       ├── core/         # AI, encryption, memory, task queue, dll
+│   │       ├── modules/      # Domain modules (auth, messages, voice, dll)
+│   │       └── plugins/      # Fastify plugins (auth, socket)
+│   └── frontend/        # frontend — React SPA
+│       └── src/
+│           ├── routes/       # TanStack Router file-based
+│           ├── components/   # shadcn/ui + ai-elements
+│           │   ├── ui/           # Primitives (button, input, card, dll)
+│           │   ├── ai-elements/  # AI output components (48 files)
+│           │   ├── chat/         # ChatBubble, ChatList, ChatInput
+│           │   ├── settings/     # AIProviders, Platforms, Reports
+│           │   ├── sidebar/      # ChannelList, KnowledgeVault
+│           │   └── ...           # onboarding, layout, dll
+│           ├── hooks/        # useMessages, useSocketEvents, dll
+│           ├── stores/       # authStore, uiStore (Zustand)
+│           └── lib/          # api client, socket, utils
+├── packages/
+│   ├── database/        # @ghost/database — Prisma schema + client
+│   │   ├── prisma/          # schema.prisma + migrations
+│   │   └── src/             # Extended Prisma client
+│   ├── shared/          # @ghost/shared — Zod schemas + types
+│   └── config/          # @ghost/config — Zod-validated env
+├── package.json         # Workspace root
+├── pnpm-workspace.yaml  # pnpm workspace definition
+└── turbo.json           # Turborepo task pipeline
+```
+
+---
+
+## Design Patterns
+
+| Pola | Implementasi |
+|------|-------------|
+| **Modular Monolith** | `modules/` — domain terpisah, satu proses |
+| **Monorepo** | pnpm workspaces + Turborepo |
+| **Event-Driven** | EventBus in-app (Node.js EventEmitter) |
+| **Compound Components** | ai-elements (Message+Content+Actions, Tool+Header+Content) |
+| **Provider Pattern** | React Context (PromptInputProvider, ReasoningContext) |
+| **RAG Pipeline** | Embedding → Vector Search → Cosine Similarity → LLM Generate |
+
+---
+
+## Security
+
+| Area | Approach |
+|------|----------|
+| **Credentials** | Encrypted AES-256-GCM di PostgreSQL |
+| **Auth** | Session-based JWT via Better Auth |
+| **Webhook Verification** | HMAC-SHA256 (WhatsApp, Slack), secret token (Telegram) |
+| **Rate Limiting** | 100 req/min per IP |
+| **CORS** | Configurable origins |
+| **File Storage** | Local directory per user ID |
+
+---
+
+## Development
+
+```bash
+# Install
+pnpm install
+pnpm db:generate
+
+# Run
+pnpm dev                    # Backend :8000 + Frontend :5173
+pnpm --filter @ghost/backend dev   # Backend only
+pnpm --filter frontend dev         # Frontend only
+
+# Test & Lint
+pnpm --filter @ghost/backend test
+pnpm --filter @ghost/backend typecheck
+pnpm --filter frontend typecheck
+pnpm lint
+```

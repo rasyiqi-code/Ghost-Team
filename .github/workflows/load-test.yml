@@ -1,0 +1,246 @@
+name: Load Test — k6
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    # Jalan setiap hari jam 06:00 UTC untuk monitoring regresi
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Target API URL'
+        required: false
+        default: 'http://localhost:8000'
+      duration:
+        description: 'Test duration (seconds)'
+        required: false
+        default: '30'
+      vus:
+        description: 'Virtual users'
+        required: false
+        default: '10'
+
+jobs:
+  health-check:
+    name: '🏋️ Health Endpoint'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ghost_relay
+          POSTGRES_USER: ghost
+          POSTGRES_PASSWORD: changeme
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U ghost -d ghost_relay"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run db:generate
+
+      - name: Push database schema
+        run: bun run db:push
+        env:
+          DATABASE_URL: postgresql://ghost:changeme@localhost:5433/ghost_relay
+
+      - name: Start backend server
+        run: |
+          cd apps/backend
+          bun run src/main.ts &
+        env:
+          JWT_SECRET_KEY: ci-test-jwt-secret-key
+          ENCRYPTION_KEY: ci-test-encryption-key-32char-long!!
+          CRYPTO_SALT: ci-test-salt-value-at-least-16-char
+          DATABASE_URL: postgresql://ghost:changeme@localhost:5433/ghost_relay
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+              echo "Backend ready after ${i}s"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Backend failed to start"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Install k6
+        run: |
+          curl -sL https://github.com/grafana/k6/releases/download/v2.1.0/k6-v2.1.0-linux-amd64.deb -o /tmp/k6.deb
+          sudo dpkg -i /tmp/k6.deb
+          k6 version
+
+      - name: Run health load test
+        run: |
+          k6 run \
+            --vus ${{ github.event.inputs.vus || '10' }} \
+            --duration ${{ github.event.inputs.duration || '30s' }} \
+            --summary-export=/tmp/k6-summary.json \
+            load-test/ci-health.js
+        env:
+          API_URL: http://localhost:8000
+
+      - name: Upload k6 summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-health-summary
+          path: /tmp/k6-summary.json
+
+      - name: Stop backend
+        if: always()
+        run: kill $(pgrep -f 'bun run src/main.ts') 2>/dev/null || true
+
+  # Job terpisah untuk endpoint yang butuh autentikasi
+  authenticated:
+    name: '🔐 Messages & Send'
+    runs-on: ubuntu-latest
+    # Jalan independen dari health-check (pakai service sendiri)
+    needs: []
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ghost_relay
+          POSTGRES_USER: ghost
+          POSTGRES_PASSWORD: changeme
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U ghost -d ghost_relay"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run db:generate
+
+      - name: Push database schema
+        run: bun run db:push
+        env:
+          DATABASE_URL: postgresql://ghost:changeme@localhost:5433/ghost_relay
+
+      - name: Start backend
+        run: |
+          cd apps/backend
+          bun run src/main.ts &
+        env:
+          JWT_SECRET_KEY: ci-test-jwt-secret-key
+          ENCRYPTION_KEY: ci-test-encryption-key-32char-long!!
+          CRYPTO_SALT: ci-test-salt-value-at-least-16-char
+          DATABASE_URL: postgresql://ghost:changeme@localhost:5433/ghost_relay
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+              echo "Backend ready after ${i}s"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Backend failed to start"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Install k6
+        run: |
+          curl -sL https://github.com/grafana/k6/releases/download/v2.1.0/k6-v2.1.0-linux-amd64.deb -o /tmp/k6.deb
+          sudo dpkg -i /tmp/k6.deb
+          k6 version
+
+      - name: Sign up admin user & get auth token
+        id: auth
+        run: |
+          # Sign-up (first user = platform owner)
+          SIGNUP=$(curl -s -X POST http://localhost:8000/api/auth/sign-up/email \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@ghost.local","password":"admin123","name":"Admin"}')
+          echo "Sign-up response: $SIGNUP"
+
+          # Sign-in untuk dapat session token
+          LOGIN=$(curl -s -X POST http://localhost:8000/api/auth/sign-in/email \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@ghost.local","password":"admin123"}')
+          echo "Login response: $LOGIN"
+
+          # Extract token (format tergantung better-auth)
+          TOKEN=$(echo "$LOGIN" | grep -o '"token"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+          if [ -z "$TOKEN" ]; then
+            TOKEN=$(echo "$LOGIN" | grep -o '"sessionToken"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+          fi
+          echo "auth_token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Run messages list load test
+        if: steps.auth.outputs.auth_token != ''
+        run: |
+          k6 run \
+            --vus 5 \
+            --duration 30s \
+            --summary-export=/tmp/k6-messages-summary.json \
+            load-test/messages.js
+        env:
+          API_URL: http://localhost:8000
+          AUTH_TOKEN: ${{ steps.auth.outputs.auth_token }}
+
+      - name: Run send message load test
+        if: steps.auth.outputs.auth_token != ''
+        run: |
+          k6 run \
+            --vus 3 \
+            --duration 20s \
+            --summary-export=/tmp/k6-send-summary.json \
+            load-test/send-message.js
+        env:
+          API_URL: http://localhost:8000
+          AUTH_TOKEN: ${{ steps.auth.outputs.auth_token }}
+
+      - name: Upload k6 summary
+        uses: actions/upload-artifact@v4
+        if: steps.auth.outputs.auth_token != ''
+        with:
+          name: k6-authenticated-summaries
+          path: |-
+            /tmp/k6-messages-summary.json
+            /tmp/k6-send-summary.json
+
+      - name: Stop backend
+        if: always()
+        run: kill $(pgrep -f 'bun run src/main.ts') 2>/dev/null || true

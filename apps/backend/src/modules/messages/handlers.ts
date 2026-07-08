@@ -3,12 +3,11 @@ import type { Server as SocketIOServer } from 'socket.io'
 import { db } from '@ghost/database'
 import { platformService } from '../../core/platform-service.js'
 import { eventBus } from '../../core/event-bus.js'
+import { generateEmbedding } from '../../core/ai-embedding.js'
+import { memoryStore } from '../../core/memory-store.js'
 import { validate, sendValidationError, ValidationError } from '../../core/validation.js'
 import { messageCreateSchema, messageSearchSchema } from '@ghost/shared'
-import { generateEmbedding } from '../../core/ai-embedding.js'
-import { generateAutoReply } from '../../core/ai-chat.js'
-import { memoryStore } from '../../core/memory-store.js'
-
+import { decrypt } from '../../core/encryption.js'
 export let socketIO: SocketIOServer
 
 export function setSocketIO(io: SocketIOServer) {
@@ -37,14 +36,23 @@ export async function handleGetMessages(req: FastifyRequest) {
 }
 
 export async function handleSendMessage(req: FastifyRequest, reply: FastifyReply) {
-  let body: { platform: string; receiver_id: string; content: string; message_type?: string }
+  let body: {
+    platform: string
+    receiver_id: string
+    content: string
+    message_type?: string
+    sender_id?: string
+    sender_name?: string
+    is_outgoing?: boolean
+    rag_sources?: string[]
+  }
   try {
     body = validate(messageCreateSchema, req.body)
   } catch (err) {
     if (err instanceof ValidationError) return sendValidationError(reply, err)
     throw err
   }
-  const { platform, receiver_id, content, message_type = 'text' } = body
+  const { platform, receiver_id, content, message_type = 'text', sender_id, sender_name, is_outgoing, rag_sources } = body
   const userId = req.userId
   const user = await db.user.findFirst({ where: { id: userId } })
 
@@ -52,11 +60,12 @@ export async function handleSendMessage(req: FastifyRequest, reply: FastifyReply
     data: {
       userId,
       platform,
-      senderId: String(userId),
-      senderName: user?.name ?? '',
+      senderId: sender_id ?? String(userId),
+      senderName: sender_name ?? (user?.name ?? ''),
       content,
       messageType: message_type,
-      isOutgoing: true,
+      isOutgoing: is_outgoing ?? true,
+      ragSources: rag_sources ?? [],
     }
   })
 
@@ -75,54 +84,89 @@ export async function handleSendMessage(req: FastifyRequest, reply: FastifyReply
     timestamp: String(msg.timestamp),
   })
 
+  // Forward ke platform lain jika bukan web
   if (platform !== 'web') {
     try {
       await platformService.sendMessage(platform, receiver_id, content ?? '')
     } catch { /* skip */ }
-  } else {
-    handleWebAiAssistantReply(userId, content).catch(err => {
-      console.error('Gagal memproses balasan AI Asisten:', err)
-    })
+  }
+
+  // Auto-forward: web chat → semua platform eksternal yang terhubung
+  if (platform === 'web' && content) {
+    try {
+      const connections = await db.platformConnection.findMany({
+        where: { userId, isActive: true },
+      })
+      for (const conn of connections) {
+        try {
+          const recipientId = conn.platformUserId
+          if (!recipientId) continue
+
+          let creds: any = undefined
+          if (conn.credentialsEncrypted) {
+            const raw = decrypt(conn.credentialsEncrypted)
+            try { creds = JSON.parse(raw) } catch { creds = { botToken: raw } }
+          }
+
+          const ok = await platformService.sendMessage(conn.platform, recipientId, content, creds)
+          if (ok) {
+            // Simpan outgoing message record
+            await db.message.create({
+              data: {
+                userId,
+                platform: conn.platform,
+                senderId: String(userId),
+                senderName: sender_name ?? (user?.name ?? ''),
+                content,
+                messageType: 'text',
+                isOutgoing: true,
+              },
+            }).catch(() => {})
+          }
+        } catch { /* skip per-platform error */ }
+      }
+    } catch { /* skip connection query error */ }
+  }
+
+  // Embed ke RAG memory untuk semantic search & auto-reply
+  if (content) {
+    generateEmbedding(content, userId).then(embedding => {
+      return memoryStore.addChat(String(msg.id), embedding, content, {
+        sender: msg.senderName ?? 'unknown',
+        platform,
+        timestamp: String(msg.timestamp),
+        userId: String(userId),
+      })
+    }).catch(() => { /* memory skip */ })
   }
 
   reply.status(201).send(msg)
 }
 
-async function handleWebAiAssistantReply(userId: number, content: string) {
-  let context: string[] = []
-  try {
-    const queryEmbedding = await generateEmbedding(content, userId)
-    const matches = await memoryStore.searchChat(queryEmbedding, 3, { userId: String(userId) })
-    context = matches.filter(m => m.similarity >= 0.6).map(m => m.content)
-  } catch (err) {
-    console.warn('Gagal memuat RAG context untuk asisten AI:', err)
-  }
-
-  let answer = ''
-  try {
-    answer = await generateAutoReply(content, context, userId)
-  } catch (err) {
-    console.error('Error saat memanggil LLM untuk balasan asisten AI:', err)
-    answer = 'Maaf, saya sedang mengalami kendala teknis dan tidak dapat membalas pesan Anda saat ini. Silakan periksa kembali konfigurasi API Key dan Base URL Anda.'
-  }
-
-  const aiMsg = await db.message.create({
-    data: {
-      userId,
-      platform: 'web',
-      senderId: 'ai-assistant',
-      senderName: 'Asisten AI',
-      content: answer || 'Maaf, saya tidak mendapat jawaban dari model.',
-      messageType: 'text',
-      isOutgoing: false,
-    }
+export async function handleDeleteMessage(req: FastifyRequest, reply: FastifyReply) {
+  const { id } = req.params as { id: string }
+  const msg = await db.message.findFirst({
+    where: { id: Number(id), userId: req.userId },
   })
-
-  try {
-    socketIO.to(`user:${userId}`).emit('new_message', aiMsg)
-  } catch (err) {
-    console.error('Gagal mengirim pesan balasan asisten AI via WebSocket:', err)
+  if (!msg) {
+    reply.status(404).send({ detail: 'Message not found' })
+    return
   }
+  await db.message.delete({
+    where: { id: Number(id) },
+  })
+  try {
+    socketIO.to(`user:${req.userId}`).emit('new_message', {})
+  } catch { /* ws skip */ }
+  return { status: 'ok' }
+}
+
+export async function handleClearMessages(req: FastifyRequest) {
+  const userId = req.userId
+  const result = await db.message.deleteMany({
+    where: { userId },
+  })
+  return { status: 'ok', deletedCount: result.count }
 }
 
 export async function handleSearchMessages(req: FastifyRequest, reply: FastifyReply) {

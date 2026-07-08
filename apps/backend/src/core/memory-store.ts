@@ -8,6 +8,7 @@ export interface QueryResult {
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0
   let dot = 0, normA = 0, normB = 0
   for (let i = 0; i < a.length; i++) {
     dot += a[i]! * b[i]!
@@ -38,7 +39,7 @@ class PersistentVectorStore {
         metadata: metadata as any,
       },
       create: {
-        userId: Number(metadata.userId ?? 0),
+        userId: metadata.userId ?? '',
         referenceId: id,
         collection: 'chat_memory',
         document,
@@ -92,7 +93,7 @@ class PersistentVectorStore {
         metadata: metadata as any,
       },
       create: {
-        userId: Number(metadata.userId ?? 0),
+        userId: metadata.userId ?? '',
         referenceId: id,
         collection: 'knowledge_vault',
         document,

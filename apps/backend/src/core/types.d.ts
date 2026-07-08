@@ -11,6 +11,6 @@ declare module 'fastify' {
     taskQueue: TaskQueue
   }
   interface FastifyRequest {
-    userId: number
+    userId: string
   }
 }

@@ -8,21 +8,52 @@ generator client {
 }
 
 model User {
-  id            Int                  @id @default(autoincrement())
-  email         String               @unique
+  id            String   @id @default(uuid())
+  email         String   @unique
   name          String
-  emailVerified Boolean              @default(false) @map("email_verified")
+  emailVerified Boolean  @default(false) @map("email_verified")
   image         String?
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @updatedAt @map("updated_at")
+  role          String   @default("user")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
   messages      Message[]
   files         File[]
   platforms     PlatformConnection[]
   aiProviders   AIProvider[]
+  ownedWorkspace  Workspace?        @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  notifications    Notification[]
+  notificationsSent Notification[] @relation("NotificationSender")
 
   @@map("users")
+}
+
+model Workspace {
+  id         String   @id @default(uuid())
+  name       String
+  ownerId    String   @unique @map("owner_id")
+  owner      User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  inviteCode String   @unique @map("invite_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+  members    WorkspaceMember[]
+  aiProviders AIProvider[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String   @default("member")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
 }
 
 model Session {
@@ -33,7 +64,7 @@ model Session {
   updatedAt DateTime @map("updated_at")
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
-  userId    Int      @map("user_id")
+  userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
@@ -43,7 +74,7 @@ model Account {
   id                    String    @id
   accountId             String    @map("account_id")
   providerId            String    @map("provider_id")
-  userId                Int       @map("user_id")
+  userId                String    @map("user_id")
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?   @map("access_token")
   refreshToken          String?   @map("refresh_token")
@@ -71,7 +102,7 @@ model Verification {
 
 model Message {
   id                Int      @id @default(autoincrement())
-  userId            Int      @map("user_id")
+  userId            String   @map("user_id")
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   platform          String
   senderId          String   @map("sender_id")
@@ -83,13 +114,14 @@ model Message {
   platformMessageId String?  @map("platform_message_id")
   isOutgoing        Boolean  @default(false) @map("is_outgoing")
   timestamp         DateTime @default(now())
+  ragSources        Json?    @map("rag_sources")
 
   @@map("messages")
 }
 
 model File {
   id            Int       @id @default(autoincrement())
-  userId        Int       @map("user_id")
+  userId        String    @map("user_id")
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   originalName  String    @map("original_name")
   storageUrl    String    @map("storage_url")
@@ -105,7 +137,7 @@ model File {
 
 model PlatformConnection {
   id                   Int     @id @default(autoincrement())
-  userId               Int     @map("user_id")
+  userId               String  @map("user_id")
   user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   platform             String
   credentialsEncrypted String? @map("credentials_encrypted")
@@ -117,8 +149,11 @@ model PlatformConnection {
 
 model AIProvider {
   id           Int      @id @default(autoincrement())
-  userId       Int      @map("user_id")
+  userId       String   @map("user_id")
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String?  @map("workspace_id")
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  scope        String   @default("personal")
   providerType String   @map("provider_type")
   name         String
   apiBaseUrl   String   @map("api_base_url")
@@ -141,7 +176,7 @@ model SystemSetting {
 
 model Embedding {
   id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
+  userId      String   @map("user_id")
   referenceId String   @map("reference_id")
   collection  String
   document    String
@@ -151,4 +186,20 @@ model Embedding {
 
   @@unique([referenceId, collection])
   @@map("embeddings")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId  String   @map("sender_id")
+  sender    User     @relation("NotificationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  type      String   @default("info")
+  title     String
+  message   String?
+  link      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
 }

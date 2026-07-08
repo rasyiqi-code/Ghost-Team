@@ -1,3 +1,7 @@
+> ⚠️ **ARSIP** — Dokumen ini adalah pseudocode awal dari fase desain. Seluruh konsep sudah diimplementasikan dalam kode aktual (TypeScript/Node.js). Lihat kode sumber di `apps/backend/src/` untuk implementasi terkini.
+
+---
+
 Oke, kita **breakdown** arsitektur internal dan logikanya jadi **5 modul inti**. Saya tuliskan **pseudocode**-nya dalam gaya agnostik (bukan Python murni, tapi logika universal) biar kamu gampang mengimplementasikannya pakai bahasa apa pun nanti.
 
 Kita mulai dari alur paling kritis: **Saat pesan masuk** (baik itu teks, voice note, atau file).

@@ -1,12 +1,14 @@
-import { makeClient, getActiveProvider } from './ai-client.js'
+import { embed } from 'ai'
+import { getEmbeddingModel } from './ai-client.js'
 
-export async function generateEmbedding(text: string, userId?: number): Promise<number[]> {
-  const provider = await getActiveProvider('embedding', userId)
-  if (!provider) throw new Error('No AI provider configured for embedding')
-  const client = makeClient(provider.apiKey, provider.baseURL)
-  const result = await client.embeddings.create({
-    model: provider.modelId,
-    input: text,
+export async function generateEmbedding(text: string, userId?: string): Promise<number[]> {
+  const em = await getEmbeddingModel(userId)
+  if (!em) throw new Error('No AI provider configured for embedding')
+
+  const { embedding } = await embed({
+    model: em.model,
+    value: text,
   })
-  return result.data[0]?.embedding ?? []
+
+  return embedding
 }

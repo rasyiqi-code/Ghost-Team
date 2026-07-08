@@ -14,7 +14,7 @@ export function useMessages(platform?: string, search?: string) {
           query: search,
           page,
           page_size: PAGE_SIZE,
-        })
+        }, { silent: true })
         return res
       }
       const params = new URLSearchParams()
@@ -29,7 +29,6 @@ export function useMessages(platform?: string, search?: string) {
       const totalPages = Math.ceil(lastPage.total / lastPage.pageSize)
       return lastPage.page < totalPages ? lastPage.page + 1 : undefined
     },
-    refetchInterval: search ? false : 5000,
   })
 }
 

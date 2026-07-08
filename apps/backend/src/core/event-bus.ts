@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 
 export interface MessageCreatedEvent {
   id: number
-  userId: number
+  userId: string
   platform: string
   content: string | null
   senderName: string | null

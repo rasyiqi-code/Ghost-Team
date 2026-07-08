@@ -3,6 +3,7 @@ import { AlertCircle, Bot, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TeamList } from './TeamList'
 
 interface PlatformConnection {
   id: number
@@ -20,7 +21,7 @@ interface ChannelListProps {
 export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelListProps) {
   const { data: connections = [], isLoading, isError } = useQuery<PlatformConnection[]>({
     queryKey: ['platforms'],
-    queryFn: () => api.get('/settings/platforms'),
+    queryFn: () => api.get('/settings/platforms', { silent: true }),
     staleTime: 30000,
   })
 
@@ -125,6 +126,9 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
             )}
           </div>
         </div>
+
+        {/* Team Members Section */}
+        <TeamList collapsed={collapsed} />
 
         {/* AI Assistant History Section */}
         <div className="space-y-2">

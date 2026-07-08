@@ -1,7 +1,7 @@
-import { makeClient, getActiveProvider } from './ai-client.js'
+import { getActiveProvider, makeOpenAIProvider } from './ai-client.js'
 
 export async function listAvailableModels(
-  userId?: number,
+  userId?: string,
 ): Promise<{ id: string; providerBaseURL: string; ownedBy: string }[]> {
   const providers: { apiKey: string; baseURL: string }[] = []
 
@@ -20,16 +20,21 @@ export async function listAvailableModels(
 
   for (const p of uniqueProviders) {
     try {
-      const client = makeClient(p.apiKey, p.baseURL)
-      const models = await client.models.list()
-      for (const m of models.data) {
+      // Gunakan fetch langsung ke openai-compatible /models endpoint
+      const modelsUrl = `${p.baseURL.replace(/\/+$/, '')}/models`
+      const res = await fetch(modelsUrl, {
+        headers: { 'Authorization': `Bearer ${p.apiKey}` },
+      })
+      if (!res.ok) continue
+      const json = await res.json() as { data?: { id: string; owned_by?: string }[] }
+      for (const m of (json.data ?? [])) {
         const key = `${p.baseURL}:${m.id}`
         if (!seen.has(key)) {
           seen.add(key)
           results.push({
             id: m.id,
             providerBaseURL: p.baseURL,
-            ownedBy: (m as any).owned_by as string ?? '',
+            ownedBy: m.owned_by ?? '',
           })
         }
       }

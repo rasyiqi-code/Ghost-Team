@@ -7,6 +7,7 @@ export const aiProviderCreateSchema = z.object({
   api_key: z.string().default(''),
   model_id: z.string().min(1).max(255),
   is_active: z.boolean().default(true),
+  scope: z.enum(['personal', 'workspace', 'global']).default('personal'),
 })
 
 export const aiProviderResponseSchema = z.object({
@@ -26,6 +27,7 @@ export const aiProviderUpdateSchema = z.object({
   api_key: z.string().optional(),
   model_id: z.string().max(255).optional(),
   is_active: z.boolean().optional(),
+  scope: z.enum(['personal', 'workspace', 'global']).optional(),
 })
 
 export type AIProviderCreate = z.infer<typeof aiProviderCreateSchema>

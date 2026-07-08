@@ -1,18 +1,29 @@
 [Unit]
 Description=Ghost Relay - AI Team Communication Bridge
-After=network.target
+After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/opt/ghost-relay
-ExecStart=/opt/ghost-relay/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Production: jalankan backend langsung (pastikan sudah di-build: pnpm build)
+ExecStart=/usr/bin/node /opt/ghost-relay/apps/backend/dist/main.js
+
+Environment=NODE_ENV=production
+Environment=DATABASE_URL=postgresql://ghost:changeme@localhost:5432/ghost_relay
+Environment=JWT_SECRET_KEY=change-me-in-production
+Environment=ENCRYPTION_KEY=change-me-in-production
+Environment=CRYPTO_SALT=change-me-in-production
+Environment=HOST=0.0.0.0
+Environment=PORT=8000
+Environment=FRONTEND_DIR=/opt/ghost-relay/apps/frontend/dist
+
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

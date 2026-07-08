@@ -7,7 +7,7 @@ export const Route = createRootRouteWithContext<{
 }>()({
   beforeLoad: ({ location }) => {
     const token = useAuthStore.getState().token
-    if (!token && location.pathname !== '/login') {
+    if (!token && location.pathname !== '/login' && !location.pathname.startsWith('/invite/') && !location.pathname.startsWith('/reset-password')) {
       throw redirect({ to: '/login' })
     }
   },

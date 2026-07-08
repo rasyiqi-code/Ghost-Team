@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { eventBus } from '../../core/event-bus.js'
+import { getSetting } from '../../core/db-settings.js'
 
 export let socketIO: SocketIOServer
 
@@ -76,7 +77,9 @@ export async function handleVoiceCommand(req: FastifyRequest, reply: FastifyRepl
 
   const intent = await extractIntent(text, req.userId)
 
-  if (!intent.error) {
+  // FP-4: voice command hanya auto-send jika diaktifkan oleh user
+  const autoSend = await getSetting('voice_command_enabled', 'false')
+  if (!intent.error && autoSend === 'true') {
     const platform = (intent.platform ?? 'All').toLowerCase()
     const messageText = intent.message ?? text
     const receiver = intent.receiver ?? ''
@@ -102,7 +105,10 @@ export async function handleVoiceCommandText(req: FastifyRequest, reply: Fastify
     return
   }
   const intent = await extractIntent(text, req.userId)
-  if (!intent.error) {
+
+  // FP-4: voice command hanya auto-send jika diaktifkan oleh user
+  const autoSend = await getSetting('voice_command_enabled', 'false')
+  if (!intent.error && autoSend === 'true') {
     const platform = (intent.platform ?? 'All').toLowerCase()
     const messageText = intent.message ?? text
     if (platform !== 'all' && platform !== '') {
@@ -124,16 +130,16 @@ export async function handleGetVoiceStatus(req: FastifyRequest, reply: FastifyRe
     reply.status(404).send({ detail: 'Voice note not found' })
     return
   }
-  if ((msg.content ?? '').toLowerCase().includes('processing')) {
+  if (msg.messageType === 'voice_note') {
     reply.send({ id: msg.id, status: 'processing' })
     return
   }
   reply.send({ id: msg.id, status: 'completed', transcription: msg.content })
 }
 
-export async function processVoiceNote(userId: number, messageId: number, audioPath: string): Promise<void> {
+export async function processVoiceNote(userId: string, messageId: number, audioPath: string): Promise<void> {
   try {
-    const rawText = await transcribeAudio(audioPath)
+    const rawText = await transcribeAudio(audioPath, userId)
     await unlink(audioPath).catch(() => {})
 
     if (!rawText) {

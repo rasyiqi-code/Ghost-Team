@@ -5,6 +5,10 @@ export const messageCreateSchema = z.object({
   receiver_id: z.string(),
   content: z.string().min(1).max(10000),
   message_type: z.string().default('text'),
+  sender_id: z.string().optional(),
+  sender_name: z.string().optional(),
+  is_outgoing: z.boolean().optional(),
+  rag_sources: z.array(z.string()).optional(),
 })
 
 export const messageResponseSchema = z.object({
@@ -19,6 +23,7 @@ export const messageResponseSchema = z.object({
   platformMessageId: z.string().nullable(),
   isOutgoing: z.boolean(),
   timestamp: z.string(),
+  ragSources: z.array(z.string()).nullable(),
 })
 
 export const messageListResponseSchema = z.object({

@@ -6,6 +6,7 @@ import {
   handleGetPlatforms,
   handleCreatePlatform,
   handleUpdatePlatform,
+  handleDeletePlatform,
   handleMigratePlatforms
 } from './handlers.js'
 
@@ -16,5 +17,6 @@ export async function platformsModule(app: FastifyInstance): Promise<void> {
   app.get('/settings/platforms', { preHandler: [app.authenticate] }, handleGetPlatforms)
   app.post('/settings/platforms', { preHandler: [app.authenticate] }, handleCreatePlatform)
   app.put('/settings/platforms/:id', { preHandler: [app.authenticate] }, handleUpdatePlatform)
+  app.delete('/settings/platforms/:id', { preHandler: [app.authenticate] }, handleDeletePlatform)
   app.post('/settings/platforms/migrate', { preHandler: [app.authenticate] }, handleMigratePlatforms)
 }

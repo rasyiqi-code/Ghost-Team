@@ -8,6 +8,7 @@ export interface Message {
   messageType: string
   timestamp: Date
   isOutgoing: boolean
+  ragSources?: string[]
 }
 
 export interface MessageListResponse {
@@ -26,6 +27,7 @@ export interface File {
   folder: string
   sizeBytes: number
   uploadedAt: Date
+  extractedText?: string
 }
 
 export interface VoiceNote {
@@ -42,15 +44,15 @@ export interface PlatformConnection {
   id: number
   userId?: string
   platform: string
-  is_active: boolean
-  isActive?: boolean
-  platform_user_id: string | null
+  isActive: boolean
+  platformUserId: string | null
 }
 
 export interface User {
   id: string
   email: string
   name: string
+  role?: string
 }
 
 /** Provider AI yang tersimpan di database */
@@ -63,6 +65,7 @@ export interface AIProvider {
   apiKey: string
   modelId: string
   isActive: boolean
+  scope: 'personal' | 'workspace' | 'global'
 }
 
 /** Entry dari katalog models.dev */
@@ -85,4 +88,23 @@ export interface AIProviderForm {
   apiBaseUrl: string
   apiKey: string
   modelId: string
+  scope: 'personal' | 'workspace' | 'global'
+}
+
+/** Notifikasi dari anggota tim / AI */
+export interface Notification {
+  id: number
+  userId: string
+  senderId: string
+  type: string
+  title: string
+  message: string | null
+  link: string | null
+  readAt: string | null
+  createdAt: string
+  sender?: {
+    id: string
+    name: string
+    email: string
+  }
 }

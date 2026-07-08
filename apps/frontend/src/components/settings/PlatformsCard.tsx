@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Globe, Plus, RefreshCw, Check, Copy, Loader2, ChevronDown } from 'lucide-react'
+import { Globe, Plus, RefreshCw, Check, Copy, Loader2, ChevronDown, Trash2, AlertTriangle, Smartphone } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
+import { getSocket, connectSocket } from '@/lib/socket'
 import type { PlatformConnection } from '@/types'
 
 interface PlatformMeta {
@@ -20,6 +22,9 @@ function PlatformRow({
   isTesting,
   testResult,
   onToggleActive,
+  onDelete,
+  onPair,
+  pairingLoading,
 }: {
   p: PlatformConnection
   meta: { label: string; color: string }
@@ -27,9 +32,12 @@ function PlatformRow({
   isTesting: boolean
   testResult: { ok: boolean; error?: string } | null | undefined
   onToggleActive: () => void
+  onDelete: () => void
+  onPair?: () => void
+  pairingLoading?: number | null
 }) {
   const queryClient = useQueryClient()
-  const [editValue, setEditValue] = useState(p.platform_user_id ?? '')
+  const [editValue, setEditValue] = useState(p.platformUserId ?? '')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -62,6 +70,22 @@ function PlatformRow({
           <span className="font-semibold text-sm text-slate-800 capitalize">{meta.label}</span>
         </div>
         <div className="flex items-center gap-3">
+          {p.platform === 'whatsapp' && onPair && (
+            <button
+              className={`text-xs font-semibold transition-colors disabled:cursor-wait ${
+                pairingLoading === p.id ? 'text-emerald-400' : 'text-emerald-600 hover:text-emerald-700'
+              }`}
+              disabled={pairingLoading === p.id}
+              onClick={onPair}
+            >
+              {pairingLoading === p.id ? (
+                <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+              ) : (
+                <Smartphone className="h-3 w-3 inline mr-1" />
+              )}
+              {pairingLoading === p.id ? 'pairing...' : 'pair now'}
+            </button>
+          )}
           {p.platform !== 'web' && (
             <button
               className="text-xs text-cyan-600 hover:text-cyan-700 transition-colors disabled:opacity-50"
@@ -79,11 +103,12 @@ function PlatformRow({
             </Badge>
           )}
           <button className="text-xs" onClick={onToggleActive}>
-            <Badge className={`text-[10px] uppercase font-bold tracking-wider rounded px-2 py-0.5 border ${
-              p.is_active ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-400 border-slate-200'
-            }`}>
-              {p.is_active ? 'active' : 'inactive'}
+            <Badge className={`text-[10px] uppercase font-bold tracking-wider rounded px-2 py-0.5 border $              {p.isActive ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+              {p.isActive ? 'active' : 'inactive'}
             </Badge>
+          </button>
+          <button onClick={onDelete} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Delete platform">
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -160,13 +185,13 @@ export function PlatformsCard() {
 
   const { data: platformMetaList = [] } = useQuery<PlatformMeta[]>({
     queryKey: ['platform-meta'],
-    queryFn: () => api.get('/settings/platforms/meta'),
+    queryFn: () => api.get('/settings/platforms/meta', { silent: true }),
     staleTime: 60000,
   })
 
   const { data: webhookUrls } = useQuery<Record<string, string>>({
     queryKey: ['webhook-urls'],
-    queryFn: () => api.get('/settings/webhook-urls'),
+    queryFn: () => api.get('/settings/webhook-urls', { silent: true }),
     staleTime: 60000,
   })
 
@@ -203,6 +228,90 @@ export function PlatformsCard() {
       api.put(`/settings/platforms/${id}`, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platforms'] }),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/settings/platforms/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platforms'] })
+      setDeleteTarget(null)
+    },
+  })
+
+  const [deleteTarget, setDeleteTarget] = useState<PlatformConnection | null>(null)
+
+  // WhatsApp Baileys pairing state
+  const [whatsAppQr, setWhatsAppQr] = useState<{ qrDataUrl?: string; message: string } | null>(null)
+  const [whatsAppStatus, setWhatsAppStatus] = useState<string>('') // 'pairing' | 'connected' | 'disconnected'
+  const [whatsAppPhone, setWhatsAppPhone] = useState<string>('')
+  const [pairingLoading, setPairingLoading] = useState<number | null>(null) // connectionId yang sedang pairing
+
+  // Handler WhatsApp events (useCallback agar referensi stabil)
+  const handleQr = useCallback((data: { qrDataUrl?: string; message: string; connectionId: number }) => {
+    setPairingLoading(null)
+    setWhatsAppQr({ qrDataUrl: data.qrDataUrl, message: data.message })
+    setWhatsAppStatus('pairing')
+  }, [])
+
+  const handleReady = useCallback((_data: { connectionId: number; phoneNumber: string }) => {
+    setPairingLoading(null)
+    setWhatsAppQr(null)
+    setWhatsAppStatus('connected')
+    setWhatsAppPhone(_data.phoneNumber)
+    queryClient.invalidateQueries({ queryKey: ['platforms'] })
+    setTimeout(() => setWhatsAppStatus(''), 4000)
+  }, [queryClient])
+
+  const handleDisconnected = useCallback((_data: { connectionId: number; reason: string }) => {
+    // Jika reason 'force_stopped', pairing sedang diinisiasi — jangan reset UI
+    if (_data.reason === 'force_stopped') return
+    setPairingLoading(null)
+    setWhatsAppQr(null)
+    setWhatsAppStatus('disconnected')
+    setWhatsAppPhone('')
+    setTimeout(() => setWhatsAppStatus(''), 6000)
+  }, [])
+
+  // Socket listeners untuk WhatsApp Baileys events
+  useEffect(() => {
+    // Pastikan socket connect dan tersedia
+    const socket = getSocket() ?? connectSocket()
+    if (!socket) return
+
+    socket.on('whatsapp:qr', handleQr)
+    socket.on('whatsapp:ready', handleReady)
+    socket.on('whatsapp:disconnected', handleDisconnected)
+
+    // Re-attach listener setelah socket reconnect
+    const onReconnect = () => {
+      socket.off('whatsapp:qr', handleQr)
+      socket.off('whatsapp:ready', handleReady)
+      socket.off('whatsapp:disconnected', handleDisconnected)
+      socket.on('whatsapp:qr', handleQr)
+      socket.on('whatsapp:ready', handleReady)
+      socket.on('whatsapp:disconnected', handleDisconnected)
+    }
+    socket.on('connect', onReconnect)
+
+    return () => {
+      socket.off('whatsapp:qr', handleQr)
+      socket.off('whatsapp:ready', handleReady)
+      socket.off('whatsapp:disconnected', handleDisconnected)
+      socket.off('connect', onReconnect)
+    }
+  }, [handleQr, handleReady, handleDisconnected])
+
+  const triggerWhatsAppPair = async (connectionId: number) => {
+    setPairingLoading(connectionId)
+    setWhatsAppQr(null)
+    setWhatsAppStatus('pairing')
+    try {
+      await api.post('/webhook/whatsapp', { connectionId })
+    } catch (e: any) {
+      setPairingLoading(null)
+      setWhatsAppStatus('disconnected')
+      alert(e.message || 'Gagal memulai pairing WhatsApp')
+    }
+  }
 
   const testConnection = async (platform: string) => {
     setTestingPlatform(platform)
@@ -277,9 +386,60 @@ export function PlatformsCard() {
                 onTest={() => testConnection(p.platform)}
                 isTesting={testingPlatform === p.platform}
                 testResult={testResults[p.platform]}
-                onToggleActive={() => updateMutation.mutate({ id: p.id, data: { is_active: !p.is_active } })}
+                onToggleActive={() => updateMutation.mutate({ id: p.id, data: { is_active: !p.isActive } })}
+                onDelete={() => setDeleteTarget(p)}
+                onPair={p.platform === 'whatsapp' ? () => triggerWhatsAppPair(p.id) : undefined}
+                pairingLoading={pairingLoading}
               />
             ))}
+          </div>
+        )}
+
+        {/* WhatsApp Baileys QR Code Display */}
+        {whatsAppQr && whatsAppStatus === 'pairing' && (
+          <div className="mt-6 rounded-xl border border-emerald-100 bg-emerald-50/30 p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-emerald-500" />
+              <h4 className="font-semibold text-sm text-emerald-800">Pair WhatsApp</h4>
+            </div>
+            <p className="text-xs text-emerald-600">{whatsAppQr.message}</p>
+            {whatsAppQr.qrDataUrl ? (
+              <div className="flex justify-center">
+                <img
+                  src={whatsAppQr.qrDataUrl}
+                  alt="WhatsApp QR Code"
+                  className="rounded-xl border-2 border-emerald-200 bg-white p-2"
+                  style={{ width: 300, height: 300 }}
+                />
+              </div>
+            ) : (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+              </div>
+            )}
+            <p className="text-xs text-center text-slate-400">
+              Buka WhatsApp di HP &gt; Settings &gt; Linked Devices &gt; Scan QR
+            </p>
+          </div>
+        )}
+
+        {/* WhatsApp connection status */}
+        {whatsAppStatus === 'connected' && (
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
+            <Check className="h-5 w-5 text-emerald-500" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-800">WhatsApp Terhubung!</p>
+              {whatsAppPhone && (
+                <p className="text-xs text-emerald-600">Nomor: {whatsAppPhone}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {whatsAppStatus === 'disconnected' && (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <p className="text-sm text-amber-800">WhatsApp terputus. Klik "Pair Now" untuk menghubungkan ulang.</p>
           </div>
         )}
 
@@ -305,16 +465,25 @@ export function PlatformsCard() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
-                  {newPlatform === 'telegram' ? 'Bot Token' : newPlatform === 'whatsapp' ? 'Access Token' : 'OAuth Token'}
-                </label>
-                <input
-                  type="password"
-                  value={newCredentials}
-                  onChange={e => setNewCredentials(e.target.value)}
-                  placeholder={newPlatform === 'telegram' ? '123456:ABC...' : 'Enter credentials...'}
-                  className="h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder-slate-300 outline-none focus:border-cyan-400 transition-colors"
-                />
+                {newPlatform === 'whatsapp' ? (
+                  <div className="h-8 flex items-center rounded-md border border-emerald-100 bg-emerald-50 px-3 text-xs text-emerald-700">
+                    <Smartphone className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
+                    No API key needed — uses QR code pairing
+                  </div>
+                ) : (
+                  <>
+                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                      {newPlatform === 'telegram' ? 'Bot Token' : 'OAuth Token'}
+                    </label>
+                    <input
+                      type="password"
+                      value={newCredentials}
+                      onChange={e => setNewCredentials(e.target.value)}
+                      placeholder={newPlatform === 'telegram' ? '123456:ABC...' : 'Enter credentials...'}
+                      className="h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 placeholder-slate-300 outline-none focus:border-cyan-400 transition-colors"
+                    />
+                  </>
+                )}
               </div>
             </div>
             <div>
@@ -342,12 +511,12 @@ export function PlatformsCard() {
               </Button>
               <Button
                 size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                disabled={createMutation.isPending || !newCredentials}
+                disabled={createMutation.isPending || (newPlatform !== 'whatsapp' && !newCredentials)}
                 onClick={async () => {
                   try {
                     await createMutation.mutateAsync({
                       platform: newPlatform,
-                      credentials: newCredentials,
+                      credentials: newPlatform === 'whatsapp' ? 'baileys' : newCredentials,
                       platform_user_id: newPlatformUserId || undefined,
                     })
                   } catch (e: any) {
@@ -363,6 +532,31 @@ export function PlatformsCard() {
 
         {webhookUrls && <WebhookUrls urls={webhookUrls} />}
       </div>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-500" />
+              Delete Platform?
+            </DialogTitle>
+            <DialogDescription>
+              Permanently remove <strong>{deleteTarget?.platform}</strong>{deleteTarget?.platformUserId ? <> (<code>{deleteTarget.platformUserId}</code>)</> : ''}.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

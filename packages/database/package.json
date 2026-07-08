@@ -14,9 +14,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ghost/config": "workspace:*",
-    "@prisma/client": "^6.2.0",
-    "postgres": "^3.4.0"
+    "@prisma/client": "^6.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

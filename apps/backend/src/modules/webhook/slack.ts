@@ -42,7 +42,8 @@ export async function handleSlackWebhook(req: FastifyRequest, reply: FastifyRepl
   }
 
   if (event.type === 'message') {
-    // Slack bot messages can trigger infinite loops if not handled, but we check if it is outgoing.
+    // Skip pesan dari bot sendiri untuk mencegah infinite loop
+    if (event.subtype === 'bot_message' || event.bot_id) return { status: 'ignored_bot' }
     const sender = (event.user as string) ?? ''
     const text = (event.text as string) ?? ''
     const slackFiles = (event.files as Record<string, unknown>[]) ?? []
@@ -94,7 +95,10 @@ export async function handleSlackWebhook(req: FastifyRequest, reply: FastifyRepl
       socketIO.to(`user:${userId}`).emit('new_message', message)
     } catch { /* ws skip */ }
 
-    if (text && !slackFiles.length) triggerAutoReply('slack', sender, text, userId, slackCreds)
+    if (text && !slackFiles.length) {
+      const channelId = (event.channel as string) ?? ''
+      triggerAutoReply('slack', sender, text, userId, slackCreds, channelId)
+    }
   }
 
   return { status: 'ok' }

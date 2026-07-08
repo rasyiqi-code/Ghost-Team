@@ -1,3 +1,7 @@
+> **ARSIP** Dokumen ini adalah lanjutan desain dari fase awal. Seluruh konsep sudah diimplementasikan dalam kode aktual: Task Decomposition di `ai-classify.ts`, Multi-Chat Integration via `@chat-adapter/*` (Chat SDK). Lihat `apps/backend/src/` untuk implementasi terkini.
+
+---
+
 Tentu, saya akan jabarkan secara mendetail dua bagian krusial dari proyek `Ghost Relay` ini: **Dekomposisi Tugas dari Voice Note** dan **Integrasi Multi-Chat (WA/TG/Slack)**.
 
 ---

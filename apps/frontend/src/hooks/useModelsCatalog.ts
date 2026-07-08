@@ -9,7 +9,7 @@ import type { CatalogProvider } from '@/types'
 export function useModelsCatalog() {
   return useQuery<{ providers: CatalogProvider[] }>({
     queryKey: ['models-catalog'],
-    queryFn: () => api.get('/settings/models-catalog'),
+    queryFn: () => api.get('/settings/models-catalog', { silent: true }),
     staleTime: 24 * 3600 * 1000,
   })
 }

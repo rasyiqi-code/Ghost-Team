@@ -6,7 +6,7 @@ export interface MigrationReport {
   skipped: number
   details: {
     id: number
-    userId: number
+    userId: string
     platform: string
     action: 'backfilled' | 'needs_input' | 'already_set'
     platformUserId: string | null
@@ -24,7 +24,7 @@ export interface MigrationReport {
  *
  * @param userId - If provided, only migrates connections belonging to this user.
  */
-export async function migratePlatformUserId(userId?: number): Promise<MigrationReport> {
+export async function migratePlatformUserId(userId?: string): Promise<MigrationReport> {
   const whereClause: any = { platformUserId: null }
   if (userId !== undefined) {
     whereClause.userId = userId
