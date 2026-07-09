@@ -37,7 +37,6 @@ function LoginPage() {
 
   const handleLongPressStart = useCallback(() => {
     longPressTimer.current = setTimeout(() => {
-      setOwnerRevealed(true)
       setMode('owner')
       setError('')
       setSuccess('')
@@ -333,7 +332,7 @@ function LoginPage() {
                 <>
                   No account?{' '}
                   <button
-                    onClick={() => { setMode('register'); setOwnerRevealed(false) }}
+                    onClick={() => { setMode('register') }}
                     className="text-primary hover:underline font-medium"
                   >
                     Create one
@@ -343,7 +342,7 @@ function LoginPage() {
                 <>
                   Already have an account?{' '}
                   <button
-                    onClick={() => { setMode('login'); setOwnerRevealed(false) }}
+                    onClick={() => { setMode('login') }}
                     className="text-primary hover:underline font-medium"
                   >
                     Sign in
@@ -351,7 +350,7 @@ function LoginPage() {
                 </>
               ) : (
                 <button
-                  onClick={() => { setMode('login'); setOwnerRevealed(false) }}
+                  onClick={() => { setMode('login') }}
                   className="text-primary hover:underline font-medium"
                 >
                   ← Back to sign in
