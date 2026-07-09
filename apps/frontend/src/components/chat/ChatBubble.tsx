@@ -42,6 +42,13 @@ export function ChatBubble({ message }: ChatBubbleProps) {
     staleTime: 60000,
   })
 
+  // Fetch workspace name
+  const { data: workspace } = useQuery<{ name: string }>({
+    queryKey: ['workspace'],
+    queryFn: () => api.get('/settings/workspace', { silent: true }),
+    staleTime: 300000,
+  })
+
   const meta = channels.find((c) => c.platform === message.platform)
   const platformLabel = meta?.label || PLATFORM_LABELS[message.platform] || message.platform.toUpperCase()
   const platformBadgeClass = PLATFORM_BADGE[message.platform] || 'border-border bg-muted text-muted-foreground'
@@ -90,7 +97,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             <Sparkles className="h-2.5 w-2.5 text-primary" />
           </div>
           <span className="text-[11px] font-semibold text-primary">
-            {message.senderName}
+            {workspace?.name || message.senderName}
           </span>
         </div>
       )}
