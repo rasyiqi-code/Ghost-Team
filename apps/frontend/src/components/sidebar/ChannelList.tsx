@@ -36,12 +36,44 @@ function getPlatformLabel(platform: string): string {
   return map[platform.toLowerCase()] || platform
 }
 
+function formatTimeShort(date: Date | string): string {
+  try {
+    const d = new Date(date)
+    const now = Date.now()
+    const diff = now - d.getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Baru saja'
+    if (mins < 60) return `${mins}m`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}j`
+    const days = Math.floor(hours / 24)
+    return `${days}h`
+  } catch {
+    return ''
+  }
+}
+
 export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelListProps) {
   const { data: connections = [], isLoading, isError } = useQuery<PlatformConnection[]>({
     queryKey: ['platforms'],
     queryFn: () => api.get('/settings/platforms', { silent: true }),
     staleTime: 30000,
   })
+
+  // Fetch riwayat percakapan AI (pesan user outgoing ke web)
+  const { data: aiHistoryData } = useQuery<{
+    messages: { id: string; content: string; timestamp: Date; isOutgoing: boolean }[]
+  }>({
+    queryKey: ['messages', 'web', undefined],
+    queryFn: () => api.get('/messages?platform=web&page=1&page_size=20', { silent: true }),
+    staleTime: 30000,
+    enabled: !collapsed,
+  })
+
+  // Ambil hanya pesan outgoing user (bukan AI response) sebagai "topik" riwayat
+  const aiHistory = (aiHistoryData?.messages ?? [])
+    .filter((m) => m.isOutgoing)
+    .slice(0, 5)
 
   const activeConnections = connections.filter((c: PlatformConnection) => c.isActive)
 
@@ -137,7 +169,7 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
         {/* Divider */}
         <div className="h-px bg-border/60 mx-1" />
 
-        {/* === Asisten AI === */}
+        {/* === Asisten AI + History === */}
         <div className="space-y-1">
           <div className="px-2 pb-1">
             <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
@@ -145,6 +177,7 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
             </p>
           </div>
           <div className="space-y-0.5">
+            {/* Tombol utama AI */}
             <button
               onClick={() => onSelect?.('web')}
               className={cn(
@@ -157,8 +190,36 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
               <Bot className={cn("h-4 w-4 shrink-0", activeId === 'web' ? 'text-primary' : 'text-muted-foreground')} />
               <span className="flex-1 truncate">AI Assistant</span>
               {/* Online indicator */}
-              <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" style={{ boxShadow: '0 0 6px oklch(0.6 0.22 264 / 70%)' }} />
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-primary shrink-0"
+                style={{ boxShadow: '0 0 6px oklch(0.6 0.22 264 / 70%)' }}
+              />
             </button>
+
+            {/* Riwayat percakapan AI */}
+            {aiHistory.length > 0 && (
+              <div className="pl-2 mt-1 space-y-0.5">
+                {aiHistory.map((msg) => (
+                  <button
+                    key={msg.id}
+                    onClick={() => onSelect?.('web')}
+                    className="flex w-full items-start gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50 group"
+                    title={msg.content}
+                  >
+                    {/* Garis kiri penanda riwayat */}
+                    <div className="mt-1 h-4 w-px bg-border/80 shrink-0 group-hover:bg-primary/30 transition-colors" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-muted-foreground/70 truncate leading-tight group-hover:text-muted-foreground transition-colors">
+                        {msg.content}
+                      </p>
+                    </div>
+                    <span className="text-[9px] text-muted-foreground/40 shrink-0 mt-0.5">
+                      {formatTimeShort(msg.timestamp)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
