@@ -51,10 +51,19 @@ fi
 
 
 # ─── Update sistem ──────────────────────────────────────────────────────────
+info "Menghentikan updater latar belakang otomatis jika ada..."
+systemctl stop unattended-upgrades 2>/dev/null || true
+
+info "Menunggu kunci package manager (apt/dpkg) dilepaskan..."
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+  sleep 2
+done
+
 info "Update package list..."
 apt-get update -qq
 apt-get install -y -qq curl git ca-certificates gnupg lsb-release ufw
 success "Sistem terupdate"
+
 
 # ─── Install Docker ─────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
