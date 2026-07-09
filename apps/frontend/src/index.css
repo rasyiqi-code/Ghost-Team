@@ -138,6 +138,9 @@
   html {
     @apply font-sans;
   }
+  input, textarea, select {
+    color: inherit;
+  }
 
   /* Custom Premium Scrollbar */
   ::-webkit-scrollbar {
