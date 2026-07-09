@@ -70,14 +70,9 @@ export function Navigation() {
         <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20 group-hover:ring-primary/40 transition-all">
           <Ghost className="h-4 w-4 text-primary" />
         </div>
-        <div className="flex flex-col leading-none">
-          <span className="text-[13px] font-semibold text-foreground tracking-tight">
-            {workspaceName}
-          </span>
-          <span className="text-[10px] text-muted-foreground font-normal tracking-wider uppercase">
-            Enterprise
-          </span>
-        </div>
+        <span className="text-[13px] font-semibold text-foreground tracking-tight">
+          {workspaceName}
+        </span>
       </Link>
 
       {/* Nav Actions */}
