@@ -199,17 +199,17 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
                   <button
                     key={msg.id}
                     onClick={() => onSelect?.('web')}
-                    className="flex w-full items-start gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50 group"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50 group"
                     title={msg.content}
                   >
                     {/* Garis kiri penanda riwayat */}
-                    <div className="mt-1 h-4 w-px bg-border/80 shrink-0 group-hover:bg-primary/30 transition-colors" />
+                    <div className="h-3 w-px bg-border/80 shrink-0 group-hover:bg-primary/30 transition-colors" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] text-muted-foreground/70 truncate leading-tight group-hover:text-muted-foreground transition-colors">
                         {msg.content}
                       </p>
                     </div>
-                    <span className="text-[9px] text-muted-foreground/40 shrink-0 mt-0.5">
+                    <span className="text-[9px] text-muted-foreground/40 shrink-0">
                       {formatTimeShort(msg.timestamp)}
                     </span>
                   </button>
