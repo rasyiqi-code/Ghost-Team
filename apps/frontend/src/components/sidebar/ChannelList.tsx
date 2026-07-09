@@ -101,7 +101,7 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed, onNewSessio
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari obrolan..."
-              className="h-8 w-full pl-8 pr-7 rounded-lg border border-border bg-background text-xs outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/50"
+              className="h-8 w-full pl-8 pr-7 rounded-lg border border-border bg-background text-xs text-foreground outline-none focus:border-primary/30 focus:ring-1 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/50"
             />
             {search && (
               <button
@@ -163,7 +163,7 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed, onNewSessio
                     className={cn(
                       'sidebar-active-item flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all duration-150',
                       isActive
-                        ? 'bg-primary/8 text-foreground font-medium'
+                        ? 'bg-primary/8 text-primary font-semibold'
                         : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground'
                     )}
                   >
