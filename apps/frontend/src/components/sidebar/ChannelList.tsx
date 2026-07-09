@@ -171,11 +171,7 @@ export function ChannelList({ activeId = 'all', onSelect, collapsed }: ChannelLi
 
         {/* === Asisten AI + History === */}
         <div className="space-y-1">
-          <div className="px-2 pb-1">
-            <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
-              Asisten AI
-            </p>
-          </div>
+
           <div className="space-y-0.5">
             {/* Tombol utama AI */}
             <button
