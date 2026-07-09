@@ -78,8 +78,8 @@ ghost-team/
 ### 1. Clone & Install
 
 ```bash
-git clone <repo>
-cd ghost-team
+git clone https://github.com/rasyiqi-code/Ghost-Team.git
+cd Ghost-Team
 
 # Install semua dependencies (workspace)
 bun install

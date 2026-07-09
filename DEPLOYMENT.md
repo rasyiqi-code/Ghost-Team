@@ -40,7 +40,7 @@ Kami telah menyediakan script `deploy-aliyun.sh` untuk mengotomatisasi seluruh p
    ```
 2. Unduh dan jalankan script:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/<username>/<repo>/master/deploy-aliyun.sh -o deploy-aliyun.sh
+   curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/Ghost-Team/master/deploy-aliyun.sh -o deploy-aliyun.sh
    # Atau jika Anda sudah meng-clone repo secara manual:
    # sudo bash /opt/ghost-relay/deploy-aliyun.sh
    
