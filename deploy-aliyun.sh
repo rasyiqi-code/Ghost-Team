@@ -36,6 +36,20 @@ if [ "$EUID" -ne 0 ]; then
   error "Jalankan script ini sebagai root: sudo bash deploy-aliyun.sh"
 fi
 
+# ─── Setup Swap (Anti Out-of-Memory) ────────────────────────────────────────
+if ! swapon --show | grep -q "swap"; then
+  info "Mengonfigurasi Swap 2GB (mencegah Out of Memory saat build)..."
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  success "Swap 2GB berhasil diaktifkan"
+else
+  success "Swap sudah aktif"
+fi
+
+
 # ─── Update sistem ──────────────────────────────────────────────────────────
 info "Update package list..."
 apt-get update -qq
