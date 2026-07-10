@@ -12,17 +12,16 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 RUN bun run db:generate
-RUN ls -la node_modules/.bin || true
 RUN bun x turbo build
 
 # ---- Stage 2: Runtime ----
 FROM node:22-alpine
 WORKDIR /app
+COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/frontend/dist /app/frontend/dist
-RUN echo '{"name":"runtime","private":true,"type":"module"}' > package.json && npm install tsx
 ENV FRONTEND_DIR=/app/frontend/dist
 ENV NODE_ENV=production
 EXPOSE 8000
