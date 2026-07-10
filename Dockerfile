@@ -15,7 +15,7 @@ RUN bun run db:generate
 RUN bun x turbo build
 
 # ---- Stage 2: Runtime ----
-FROM node:22-alpine
+FROM oven/bun:1-alpine
 WORKDIR /app
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/backend/dist ./dist
@@ -25,4 +25,4 @@ COPY --from=builder /app/apps/frontend/dist /app/frontend/dist
 ENV FRONTEND_DIR=/app/frontend/dist
 ENV NODE_ENV=production
 EXPOSE 8000
-CMD ["node", "--import", "tsx/esm", "dist/main.js"]
+CMD ["bun", "run", "dist/main.js"]
