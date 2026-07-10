@@ -17,10 +17,10 @@ RUN bun x turbo build
 # ---- Stage 2: Runtime ----
 FROM oven/bun:1-alpine
 WORKDIR /app
-COPY package.json bun.lock turbo.json ./
+COPY package.json turbo.json ./
 COPY packages ./packages
 COPY apps/backend/package.json ./apps/backend/
-RUN BUN_INSTALL_FROZEN_LOCKFILE=false bun install --production
+RUN bun install --production
 
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/frontend/dist /app/frontend/dist
