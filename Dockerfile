@@ -21,7 +21,7 @@ COPY package.json turbo.json ./
 COPY packages ./packages
 COPY apps/backend/package.json ./apps/backend/
 RUN bun install --production
-RUN bun x prisma generate --schema=packages/database/prisma/schema.prisma
+COPY --from=builder /app/node_modules/.bun ./node_modules/.bun
 
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/frontend/dist /app/frontend/dist
