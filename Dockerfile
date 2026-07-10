@@ -22,9 +22,9 @@ COPY packages ./packages
 COPY apps/backend/package.json ./apps/backend/
 RUN bun install --production
 
-COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/frontend/dist /app/frontend/dist
 ENV FRONTEND_DIR=/app/frontend/dist
 ENV NODE_ENV=production
 EXPOSE 8000
-CMD ["bun", "run", "dist/main.js"]
+CMD ["bun", "run", "apps/backend/dist/main.js"]
